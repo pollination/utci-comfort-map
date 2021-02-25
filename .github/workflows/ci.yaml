@@ -1,0 +1,82 @@
+---
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+
+  deploy:
+    name: Deploy to GitHub and PyPI
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/master' && github.repository_owner == 'pollination'
+    steps:
+      - uses: actions/checkout@v2
+      - name: set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.7
+      - name: set up node  # we need node for for semantic release
+        uses: actions/setup-node@v2.1.2
+        with:
+          node-version: 14.2.0
+      - name: install python dependencies
+        run: |
+          pip install -r dev-requirements.txt
+          pip install .
+      - name: install semantic-release
+        run:
+          npm install @semantic-release/exec
+      - name: run semantic release
+        id: new_release
+        run: |
+          nextRelease="`npx semantic-release --dryRun | grep -oP 'Published release \K.*? ' || true`"
+          npx semantic-release
+          echo "::set-output name=tag::$nextRelease"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PYPI_USERNAME: ${{ secrets.POLLINATION_PYPI_USERNAME }}
+          PYPI_PASSWORD: ${{ secrets.POLLINATION_PYPI_PASSWORD }}
+
+    outputs:
+      tag: ${{ steps.new_release.outputs.tag }}
+
+  deploy-to-staging:
+    name: Deploy to Pollination Staging
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: ${{ github.ref == 'refs/heads/master' && github.repository_owner == 'pollination' && contains(needs.deploy.outputs.tag, '.') }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.7
+      - name: install python dependencies
+        run: pip install .
+      - name: deploy to staging
+        run: |
+          queenbee
+          pollination dsl push pollination-utci-comfort-map --tag ${{needs.deploy.outputs.tag}} -e https://api.staging.pollination.cloud -src https://api.staging.pollination.cloud/registries
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          QB_POLLINATION_TOKEN: ${{ secrets.POLLINATION_STAGING_LADYBUGBOT_TOKEN }}
+
+  deploy-to-production:
+    name: Deploy to Pollination Production
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/production' && github.repository_owner == 'pollination'
+    steps:
+      - uses: actions/checkout@v2
+      - name: set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.7
+      - name: install python dependencies
+        run: pip install pollination-utci-comfort-map
+      - name: deploy to production
+        run: |
+          queenbee
+          pollination dsl push pollination-utci-comfort-map -e https://api.pollination.cloud -src https://api.pollination.cloud/registries
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          QB_POLLINATION_TOKEN: ${{ secrets.POLLINATION_LADYBUGBOT_TOKEN }}
