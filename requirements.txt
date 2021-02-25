@@ -1,0 +1,7 @@
+pollination-ladybug>=0.1.4
+pollination-ladybug-comfort>=0.1.3
+pollination-honeybee-radiance>=0.6.2
+pollination-honeybee-energy>=0.2.6
+pollination-lbt-honeybee>=0.1.0
+pollination-annual-radiation>=0.1.1
+pollination-alias>=0.2.2
