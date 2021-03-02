@@ -5,3 +5,4 @@ pollination-honeybee-energy>=0.2.7
 pollination-lbt-honeybee>=0.1.0
 pollination-annual-radiation>=0.1.1
 pollination-alias>=0.2.2
+pollination-path>=0.1.1
