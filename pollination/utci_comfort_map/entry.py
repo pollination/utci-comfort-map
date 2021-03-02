@@ -12,6 +12,7 @@ from pollination.honeybee_energy.simulate import SimulateModel
 from pollination.honeybee_energy.translate import ModelOccSchedules
 from pollination.lbt_honeybee.edit import ModelModifiersFromConstructions
 from pollination.annual_radiation.entry import AnnualRadiationEntryPoint
+from pollination.path.copy import CopyMultiple
 
 # input/output alias
 from pollination.alias.inputs.model import hbjson_model_input
@@ -67,7 +68,7 @@ class UTCIComfortMapEntryPoint(DAG):
         description='A single number for meteorological wind speed in m/s or a string '
         'of a JSON array with numbers that align with the result-sql reporting period. '
         'This will be used for all indoor comfort evaluation while the EPW wind speed '
-        'will be used for the outdoors.', default='0.5'
+        'will be used for the outdoors.', default='0.5', alias=value_or_data
     )
 
     solarcal_parameters = Inputs.str(
@@ -122,28 +123,33 @@ class UTCIComfortMapEntryPoint(DAG):
                 'to': 'results/temperature/grids_info.json'
             },
             {
-                'from': CreateRadiantEnclosureInfo()._outputs.enclosure_list_file,
+                'from': CreateRadiantEnclosureInfo()._outputs.enclosure_list,
+                'description': 'Information about exported enclosure JSONs.'
+            }
+        ]
+
+    @task(template=CopyMultiple, needs=[get_enclosure_info])
+    def copy_grid_info(self, src=get_enclosure_info._outputs.enclosure_list_file):
+        return [
+            {
+                'from': CopyMultiple()._outputs.dst_1,
                 'to': 'results/condition/grids_info.json'
             },
             {
-                'from': CreateRadiantEnclosureInfo()._outputs.enclosure_list_file,
+                'from': CopyMultiple()._outputs.dst_2,
                 'to': 'results/condition_intensity/grids_info.json'
             },
             {
-                'from': CreateRadiantEnclosureInfo()._outputs.enclosure_list_file,
+                'from': CopyMultiple()._outputs.dst_3,
                 'to': 'metrics/TCP/grids_info.json'
             },
             {
-                'from': CreateRadiantEnclosureInfo()._outputs.enclosure_list_file,
+                'from': CopyMultiple()._outputs.dst_4,
                 'to': 'metrics/HSP/grids_info.json'
             },
             {
-                'from': CreateRadiantEnclosureInfo()._outputs.enclosure_list_file,
+                'from': CopyMultiple()._outputs.dst_5,
                 'to': 'metrics/CSP/grids_info.json'
-            },
-            {
-                'from': CreateRadiantEnclosureInfo()._outputs.enclosure_list,
-                'description': 'Information about exported enclosure JSONs.'
             }
         ]
 
