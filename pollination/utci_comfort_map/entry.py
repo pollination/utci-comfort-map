@@ -28,7 +28,7 @@ from pollination.alias.outputs.comfort import tcp_output, hsp_output, csp_output
 
 
 @dataclass
-class UTCIComfortMapEntryPoint(DAG):
+class UtciComfortMapEntryPoint(DAG):
     """UTCI comfort map entry point."""
 
     # inputs
