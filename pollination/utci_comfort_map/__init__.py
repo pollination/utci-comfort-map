@@ -1,6 +1,6 @@
-from .entry import UTCIComfortMapEntryPoint
+from .entry import UtciComfortMapEntryPoint
 
 
 __pollination__ = {
-    'entry_point': UTCIComfortMapEntryPoint
+    'entry_point': UtciComfortMapEntryPoint
 }

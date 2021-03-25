@@ -1,0 +1,26 @@
+---
+name: CI
+
+on: [pull_request]
+
+jobs:
+
+  test:
+    name: Unit tests
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.7
+      - name: install python dependencies
+        run: |
+          pip install -r dev-requirements.txt
+          pip install .
+      - name: run tests
+        run: python -m pytest tests/
