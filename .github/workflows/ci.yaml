@@ -56,7 +56,7 @@ jobs:
       - name: deploy to staging
         run: |
           queenbee
-          pollination dsl push pollination-utci-comfort-map --tag ${{needs.deploy.outputs.tag}} -e https://api.staging.pollination.cloud -src https://api.staging.pollination.cloud/registries
+          pollination dsl push pollination-utci-comfort-map --tag ${{needs.deploy.outputs.tag}} -e https://api.staging.pollination.cloud -src https://api.staging.pollination.cloud/registries --push-dependencies
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           QB_POLLINATION_TOKEN: ${{ secrets.POLLINATION_STAGING_LADYBUGBOT_TOKEN }}
@@ -76,7 +76,7 @@ jobs:
       - name: deploy to production
         run: |
           queenbee
-          pollination dsl push pollination-utci-comfort-map -e https://api.pollination.cloud -src https://api.pollination.cloud/registries
+          pollination dsl push pollination-utci-comfort-map -e https://api.pollination.cloud -src https://api.pollination.cloud/registries --push-dependencies
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           QB_POLLINATION_TOKEN: ${{ secrets.POLLINATION_LADYBUGBOT_TOKEN }}
