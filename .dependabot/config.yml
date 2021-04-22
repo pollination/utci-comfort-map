@@ -1,0 +1,18 @@
+version: 1
+update_configs:
+  - package_manager: "python"
+    directory: "/"
+    update_schedule: "live"
+    ignored_updates:
+      - match:
+          dependency_name: "pytest"
+      - match:
+          dependency_name: "twine"
+      - match:
+          dependency_name: "wheel"
+      - match:
+          dependency_name: "setuptools"
+    commit_message:
+      prefix: "fix"
+      prefix_development: "chore"
+      include_scope: true

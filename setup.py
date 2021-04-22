@@ -6,6 +6,7 @@ with open("README.md", "r") as fh:
 
 with open('requirements.txt') as f:
     requirements = f.read().splitlines()
+    requirements = [req.replace('==', '>=') for req in requirements]
 
 # normal setuptool inputs
 setuptools.setup(
