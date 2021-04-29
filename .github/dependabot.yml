@@ -1,0 +1,24 @@
+version: 2
+updates:
+- package-ecosystem: pip
+  directory: "/"
+  schedule:
+    interval: daily
+  open-pull-requests-limit: 10
+  ignore:
+  - dependency-name: pytest
+    versions:
+    - ">= 0"
+  - dependency-name: setuptools
+    versions:
+    - ">= 0"
+  - dependency-name: twine
+    versions:
+    - ">= 0"
+  - dependency-name: wheel
+    versions:
+    - ">= 0"
+  commit-message:
+    prefix: fix
+    prefix-development: chore
+    include: scope
