@@ -11,7 +11,6 @@ from pollination.honeybee_energy.settings import SimParComfort
 from pollination.honeybee_energy.simulate import SimulateModel
 from pollination.honeybee_energy.translate import ModelOccSchedules
 from pollination.lbt_honeybee.edit import ModelModifiersFromConstructions
-from pollination.annual_radiation.entry import AnnualRadiationEntryPoint
 from pollination.path.copy import CopyMultiple
 
 # input/output alias
@@ -25,6 +24,8 @@ from pollination.alias.inputs.radiancepar import rad_par_annual_input
 from pollination.alias.inputs.grid import sensor_count_input, grid_filter_input
 from pollination.alias.outputs.comfort import tcp_output, hsp_output, csp_output, \
     thermal_condition_output, utci_output, utci_category_output
+
+from ._irradiance import AnnualIrradianceEntryPoint
 
 
 @dataclass
@@ -181,7 +182,7 @@ class UtciComfortMapEntryPoint(DAG):
         ]
 
     @task(
-        template=AnnualRadiationEntryPoint,
+        template=AnnualIrradianceEntryPoint,
         needs=[create_wea, mirror_sensor_grids],
         sub_folder='radiance/shortwave',  # create a subfolder for the whole simulation
     )
