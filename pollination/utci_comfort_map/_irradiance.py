@@ -140,10 +140,15 @@ class AnnualIrradianceEntryPoint(DAG):
         ]
 
     @task(template=CreateSkyMatrix)
-    def create_indirect_sky(
-        self, north=north, wea=wea, sky_type='no-sun', output_type='solar',
-        output_format='ASCII', sun_up_hours='sun-up-hours'
-    ):
+    def create_total_sky(self, north=north, wea=wea, sun_up_hours='sun-up-hours'):
+        return [
+            {'from': CreateSkyMatrix()._outputs.sky_matrix, 'to': 'resources/sky.mtx'}
+        ]
+
+    @task(template=CreateSkyMatrix)
+    def create_direct_sky(
+        self, north=north, wea=wea, sky_type='sun-only', sun_up_hours='sun-up-hours'
+            ):
         return [
             {
                 'from': CreateSkyMatrix()._outputs.sky_matrix,
@@ -173,13 +178,13 @@ class AnnualIrradianceEntryPoint(DAG):
         template=AnnualIrradianceRayTracing,
         needs=[
             create_sky_dome, create_octree_with_suns, create_octree, generate_sunpath,
-            create_indirect_sky, create_rad_folder
+            create_total_sky, create_direct_sky, create_rad_folder
         ],
         loop=create_rad_folder._outputs.sensor_grids,
         sub_folder='initial_results/{{item.name}}',  # create a subfolder for each grid
-        sub_paths={'sensor_grid': 'grid/{{item.full_id}}.pts'}  # sensor_grid sub_path
+        sub_paths={'sensor_grid': 'grid/{{item.full_id}}.pts'}  # sub_path for sensor_grid arg
     )
-    def annual_radiation_raytracing(
+    def annual_irradiance_raytracing(
         self,
         sensor_count=sensor_count,
         radiance_parameters=radiance_parameters,
@@ -188,7 +193,8 @@ class AnnualIrradianceEntryPoint(DAG):
         grid_name='{{item.full_id}}',
         sensor_grid=create_rad_folder._outputs.model_folder,
         sky_dome=create_sky_dome._outputs.sky_dome,
-        sky_matrix_indirect=create_indirect_sky._outputs.sky_matrix,
+        sky_matrix=create_total_sky._outputs.sky_matrix,
+        sky_matrix_direct=create_direct_sky._outputs.sky_matrix,
         sunpath=generate_sunpath._outputs.sunpath,
         sun_modifiers=generate_sunpath._outputs.sun_modifiers,
         bsdfs=create_rad_folder._outputs.bsdf_folder

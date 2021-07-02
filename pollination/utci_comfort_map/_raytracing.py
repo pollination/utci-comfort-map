@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pollination.honeybee_radiance.grid import SplitGrid, MergeFiles
 from pollination.honeybee_radiance.contrib import DaylightContribution
 from pollination.honeybee_radiance.coefficient import DaylightCoefficient
-from pollination.honeybee_radiance.sky import AddSkyMatrix
+from pollination.honeybee_radiance.sky import AddRemoveSkyMatrix
 
 
 @dataclass
@@ -48,8 +48,12 @@ class AnnualIrradianceRayTracing(DAG):
         description='A file with sun modifiers.'
     )
 
-    sky_matrix_indirect = Inputs.file(
-        description='Path to indirect skymtx file (i.e. gendaymtx -s).'
+    sky_matrix = Inputs.file(
+        description='Path to total sky matrix file.'
+    )
+
+    sky_matrix_direct = Inputs.file(
+        description='Path to direct skymtx file (gendaymtx -d).'
     )
 
     sky_dome = Inputs.file(
@@ -70,17 +74,17 @@ class AnnualIrradianceRayTracing(DAG):
 
     @task(
         template=DaylightContribution, needs=[split_grid],
-        loop=split_grid._outputs.grids_list, sub_folder='01_direct',
+        loop=split_grid._outputs.grids_list, sub_folder='direct_sun',
         sub_paths={'sensor_grid': '{{item.path}}'}
     )
-    def direct_sunlight(
+    def direct_sun(
         self,
         radiance_parameters=radiance_parameters,
         fixed_radiance_parameters='-aa 0.0 -I -ab 0 -dc 1.0 -dt 0.0 -dj 0.0 -dr 0',
         sensor_count='{{item.count}}', modifiers=sun_modifiers,
         sensor_grid=split_grid._outputs.output_folder,
         conversion='0.265 0.670 0.065',
-        output_format='a',  # make it ascii so we can expose the file as a separate output
+        output_format='a',  # make it ascii so we expose the file as a separate output
         scene_file=octree_file_with_suns,
         bsdf_folder=bsdfs
     ):
@@ -93,15 +97,15 @@ class AnnualIrradianceRayTracing(DAG):
 
     @task(
         template=DaylightCoefficient, needs=[split_grid],
-        loop=split_grid._outputs.grids_list, sub_folder='02_indirect',
+        loop=split_grid._outputs.grids_list, sub_folder='direct_sky',
         sub_paths={'sensor_grid': '{{item.path}}'}
     )
-    def indirect_sky(
+    def direct_sky(
         self,
         radiance_parameters=radiance_parameters,
-        fixed_radiance_parameters='-aa 0.0 -I -c 1',
+        fixed_radiance_parameters='-aa 0.0 -I -ab 1 -c 1 -faf',
         sensor_count='{{item.count}}',
-        sky_matrix=sky_matrix_indirect, sky_dome=sky_dome,
+        sky_matrix=sky_matrix_direct, sky_dome=sky_dome,
         sensor_grid=split_grid._outputs.output_folder,
         conversion='0.265 0.670 0.065',  # divide by 179
         scene_file=octree_file,
@@ -115,19 +119,42 @@ class AnnualIrradianceRayTracing(DAG):
         ]
 
     @task(
-        template=AddSkyMatrix,
-        needs=[split_grid, direct_sunlight, indirect_sky],
-        loop=split_grid._outputs.grids_list, sub_folder='03_total'
+        template=DaylightCoefficient, needs=[split_grid],
+        loop=split_grid._outputs.grids_list, sub_folder='total_sky',
+        sub_paths={'sensor_grid': '{{item.path}}'}
+    )
+    def total_sky(
+        self,
+        radiance_parameters=radiance_parameters,
+        fixed_radiance_parameters='-aa 0.0 -I -c 1 -faf',
+        sensor_count='{{item.count}}',
+        sky_matrix=sky_matrix, sky_dome=sky_dome,
+        sensor_grid=split_grid._outputs.output_folder,
+        conversion='0.265 0.670 0.065',  # divide by 179
+        scene_file=octree_file,
+        bsdf_folder=bsdfs
+    ):
+        return [
+            {
+                'from': DaylightContribution()._outputs.result_file,
+                'to': '{{item.name}}.ill'
+            }
+        ]
+
+    @task(
+        template=AddRemoveSkyMatrix,
+        needs=[split_grid, direct_sun, total_sky, direct_sky],
+        loop=split_grid._outputs.grids_list, sub_folder='final'
     )
     def output_matrix_math(
         self,
-        indirect_sky_matrix='02_indirect/{{item.name}}.ill',
-        sunlight_matrix='01_direct/{{item.name}}.ill',
-
-            ):
+        direct_sky_matrix='direct_sky/{{item.name}}.ill',
+        total_sky_matrix='total_sky/{{item.name}}.ill',
+        sunlight_matrix='direct_sun/{{item.name}}.ill'
+    ):
         return [
             {
-                'from': AddSkyMatrix()._outputs.results_file,
+                'from': AddRemoveSkyMatrix()._outputs.results_file,
                 'to': '{{item.name}}.ill'
             }
         ]
@@ -135,7 +162,7 @@ class AnnualIrradianceRayTracing(DAG):
     @task(
         template=MergeFiles, needs=[output_matrix_math]
     )
-    def merge_total_results(self, name=grid_name, extension='.ill', folder='03_total'):
+    def merge_total_results(self, name=grid_name, extension='.ill', folder='final'):
         return [
             {
                 'from': MergeFiles()._outputs.result_file,
@@ -147,7 +174,7 @@ class AnnualIrradianceRayTracing(DAG):
         template=MergeFiles, needs=[output_matrix_math]
     )
     def merge_direct_results(
-            self, name=grid_name, extension='.ill', folder='01_direct'):
+            self, name=grid_name, extension='.ill', folder='direct_sun'):
         return [
             {
                 'from': MergeFiles()._outputs.result_file,
