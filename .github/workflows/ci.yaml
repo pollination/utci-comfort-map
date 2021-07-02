@@ -72,7 +72,9 @@ jobs:
         with:
           python-version: 3.7
       - name: install python dependencies
-        run: pip install pollination-utci-comfort-map
+        run: |
+          pip install pollination-utci-comfort-map
+          pip install -r requirements.txt
       - name: deploy to production
         run: |
           queenbee

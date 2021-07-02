@@ -21,7 +21,7 @@ from pollination.alias.inputs.comfort import wind_speed_input, \
 from pollination.alias.inputs.north import north_input
 from pollination.alias.inputs.runperiod import run_period_input
 from pollination.alias.inputs.radiancepar import rad_par_annual_input
-from pollination.alias.inputs.grid import sensor_count_input, grid_filter_input
+from pollination.alias.inputs.grid import sensor_count_input
 from pollination.alias.outputs.comfort import tcp_output, hsp_output, csp_output, \
     thermal_condition_output, utci_output, utci_category_output
 
