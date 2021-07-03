@@ -1,7 +1,7 @@
-pollination-ladybug>=0.2.1
-pollination-ladybug-comfort>=0.2.2
-pollination-honeybee-radiance>=0.11.6
-pollination-honeybee-energy>=0.3.3
-pollination-lbt-honeybee>=0.1.4
+pollination-ladybug==0.2.1
+pollination-ladybug-comfort==0.2.2
+pollination-honeybee-radiance==0.11.6
+pollination-honeybee-energy==0.3.3
+pollination-lbt-honeybee==0.1.4
 pollination-alias==0.8.0
 pollination-path==0.2.0
