@@ -4,6 +4,7 @@ from pollination.honeybee_radiance.sun import CreateSunMatrix, ParseSunUpHours
 from pollination.honeybee_radiance.translate import CreateRadianceFolderGrid
 from pollination.honeybee_radiance.octree import CreateOctree, CreateOctreeWithSky
 from pollination.honeybee_radiance.sky import CreateSkyDome, CreateSkyMatrix
+from pollination.honeybee_radiance.grid import SplitGridFolder, MergeFolderData
 from pollination.path.copy import Copy
 
 
@@ -31,11 +32,16 @@ class AnnualIrradianceEntryPoint(DAG):
         alias=north_input
     )
 
-    sensor_count = Inputs.int(
-        default=200,
-        description='The maximum number of grid points per parallel execution.',
-        spec={'type': 'integer', 'minimum': 1},
-        alias=sensor_count_input
+    cpu_count = Inputs.int(
+        description='The maximum number of CPUs for parallel execution. This will be '
+        'used to determine the number of sensors run by each worker.',
+        spec={'type': 'integer', 'minimum': 1}
+    )
+
+    min_sensor_count = Inputs.int(
+        description='The minimum number of sensors in each sensor grid after '
+        'redistributing the sensors based on cpu_count.',
+        spec={'type': 'integer', 'minimum': 1}
     )
 
     radiance_parameters = Inputs.str(
@@ -45,7 +51,7 @@ class AnnualIrradianceEntryPoint(DAG):
     )
 
     grid_filter = Inputs.str(
-        description='Text for a grid identifer or a pattern to filter the sensor grids '
+        description='Text for a grid identifier or a pattern to filter the sensor grids '
         'of the model that are simulated. For instance, first_floor_* will simulate '
         'only the sensor grids that have an identifier that starts with '
         'first_floor_. By default, all grids in the model will be simulated.',
@@ -90,7 +96,7 @@ class AnnualIrradianceEntryPoint(DAG):
             },
             {
                 'from': CreateRadianceFolderGrid()._outputs.sensor_grids_file,
-                'to': 'results/direct/grids_info.json'
+                'to': 'results/total/grids_info.json'
             },
             {
                 'from': CreateRadianceFolderGrid()._outputs.sensor_grids,
@@ -103,7 +109,40 @@ class AnnualIrradianceEntryPoint(DAG):
         return [
             {
                 'from': Copy()._outputs.dst,
-                'to': 'results/total/grids_info.json'
+                'to': 'results/direct/grids_info.json'
+            }
+        ]
+
+    @task(
+        template=SplitGridFolder, needs=[create_rad_folder],
+        sub_paths={'input_folder': 'grid'}
+    )
+    def split_grid_folder(
+        self, input_folder=create_rad_folder._outputs.model_folder,
+        cpu_count=cpu_count, cpus_per_grid=3, min_sensor_count=min_sensor_count
+    ):
+        """Split sensor grid folder based on the number of CPUs"""
+        return [
+            {
+                'from': SplitGridFolder()._outputs.output_folder,
+                'to': 'resources/grid'
+            },
+            {
+                'from': SplitGridFolder()._outputs.dist_info,
+                'to': 'initial_results/final/total/_redist_info.json'
+            },
+            {
+                'from': SplitGridFolder()._outputs.sensor_grids,
+                'description': 'Sensor grids information.'
+            }
+        ]
+
+    @task(template=Copy, needs=[split_grid_folder])
+    def copy_redist_info(self, src=split_grid_folder._outputs.dist_info):
+        return [
+            {
+                'from': Copy()._outputs.dst,
+                'to': 'initial_results/final/direct/_redist_info.json'
             }
         ]
 
@@ -178,20 +217,20 @@ class AnnualIrradianceEntryPoint(DAG):
         template=AnnualIrradianceRayTracing,
         needs=[
             create_sky_dome, create_octree_with_suns, create_octree, generate_sunpath,
-            create_total_sky, create_direct_sky, create_rad_folder
+            create_total_sky, create_direct_sky, create_rad_folder, split_grid_folder
         ],
-        loop=create_rad_folder._outputs.sensor_grids,
-        sub_folder='initial_results/{{item.name}}',  # create a subfolder for each grid
-        sub_paths={'sensor_grid': 'grid/{{item.full_id}}.pts'}  # sub_path for sensor_grid arg
+        loop=split_grid_folder._outputs.sensor_grids,
+        sub_folder='initial_results/{{item.full_id}}',  # create a subfolder for each grid
+        sub_paths={'sensor_grid': '{{item.full_id}}.pts'}  # sub_path for sensor_grid arg
     )
     def annual_irradiance_raytracing(
         self,
-        sensor_count=sensor_count,
         radiance_parameters=radiance_parameters,
         octree_file_with_suns=create_octree_with_suns._outputs.scene_file,
         octree_file=create_octree._outputs.scene_file,
         grid_name='{{item.full_id}}',
-        sensor_grid=create_rad_folder._outputs.model_folder,
+        sensor_grid=split_grid_folder._outputs.output_folder,
+        sensor_count='{{item.count}}',
         sky_dome=create_sky_dome._outputs.sky_dome,
         sky_matrix=create_total_sky._outputs.sky_matrix,
         sky_matrix_direct=create_direct_sky._outputs.sky_matrix,
@@ -200,6 +239,36 @@ class AnnualIrradianceEntryPoint(DAG):
         bsdfs=create_rad_folder._outputs.bsdf_folder
     ):
         pass
+
+    @task(
+        template=MergeFolderData,
+        needs=[annual_irradiance_raytracing]
+    )
+    def restructure_total_results(
+        self, input_folder='initial_results/final/total',
+        extension='ill'
+    ):
+        return [
+            {
+                'from': MergeFolderData()._outputs.output_folder,
+                'to': 'results/total'
+            }
+        ]
+
+    @task(
+        template=MergeFolderData,
+        needs=[annual_irradiance_raytracing]
+    )
+    def restructure_direct_results(
+        self, input_folder='initial_results/final/direct',
+        extension='ill'
+    ):
+        return [
+            {
+                'from': MergeFolderData()._outputs.output_folder,
+                'to': 'results/direct'
+            }
+        ]
 
     total_radiation = Outputs.folder(
         source='results/total', description='Folder with raw result files (.ill) that '
