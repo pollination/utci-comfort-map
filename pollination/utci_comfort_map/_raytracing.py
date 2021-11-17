@@ -3,7 +3,6 @@
 from pollination_dsl.dag import Inputs, DAG, task
 from dataclasses import dataclass
 
-from pollination.honeybee_radiance.grid import SplitGrid, MergeFiles
 from pollination.honeybee_radiance.contrib import DaylightContribution
 from pollination.honeybee_radiance.coefficient import DaylightCoefficient
 from pollination.honeybee_radiance.sky import AddRemoveSkyMatrix
@@ -12,12 +11,6 @@ from pollination.honeybee_radiance.sky import AddRemoveSkyMatrix
 @dataclass
 class AnnualIrradianceRayTracing(DAG):
     # inputs
-
-    sensor_count = Inputs.int(
-        default=200,
-        description='The maximum number of grid points per parallel execution',
-        spec={'type': 'integer', 'minimum': 1}
-    )
 
     radiance_parameters = Inputs.str(
         description='The radiance parameters for ray tracing',
@@ -44,6 +37,10 @@ class AnnualIrradianceRayTracing(DAG):
         extensions=['pts']
     )
 
+    sensor_count = Inputs.int(
+        description='Number of sensors in the input sensor grid.'
+    )
+
     sun_modifiers = Inputs.file(
         description='A file with sun modifiers.'
     )
@@ -65,24 +62,15 @@ class AnnualIrradianceRayTracing(DAG):
         optional=True
     )
 
-    @task(template=SplitGrid)
-    def split_grid(self, sensor_count=sensor_count, input_grid=sensor_grid):
-        return [
-            {'from': SplitGrid()._outputs.grids_list},
-            {'from': SplitGrid()._outputs.output_folder, 'to': '00_sub_grids'}
-        ]
-
-    @task(
-        template=DaylightContribution, needs=[split_grid],
-        loop=split_grid._outputs.grids_list, sub_folder='direct_sun',
-        sub_paths={'sensor_grid': '{{item.path}}'}
-    )
+    @task(template=DaylightContribution)
     def direct_sun(
         self,
+        name=grid_name,
         radiance_parameters=radiance_parameters,
         fixed_radiance_parameters='-aa 0.0 -I -ab 0 -dc 1.0 -dt 0.0 -dj 0.0 -dr 0',
-        sensor_count='{{item.count}}', modifiers=sun_modifiers,
-        sensor_grid=split_grid._outputs.output_folder,
+        sensor_count=sensor_count,
+        modifiers=sun_modifiers,
+        sensor_grid=sensor_grid,
         conversion='0.265 0.670 0.065',
         output_format='a',  # make it ascii so we expose the file as a separate output
         scene_file=octree_file_with_suns,
@@ -91,22 +79,18 @@ class AnnualIrradianceRayTracing(DAG):
         return [
             {
                 'from': DaylightContribution()._outputs.result_file,
-                'to': '{{item.name}}.ill'
+                'to': '../final/direct/{{self.name}}.ill'
             }
         ]
 
-    @task(
-        template=DaylightCoefficient, needs=[split_grid],
-        loop=split_grid._outputs.grids_list, sub_folder='direct_sky',
-        sub_paths={'sensor_grid': '{{item.path}}'}
-    )
+    @task(template=DaylightCoefficient)
     def direct_sky(
         self,
         radiance_parameters=radiance_parameters,
         fixed_radiance_parameters='-aa 0.0 -I -ab 1 -c 1 -faf',
-        sensor_count='{{item.count}}',
+        sensor_count=sensor_count,
         sky_matrix=sky_matrix_direct, sky_dome=sky_dome,
-        sensor_grid=split_grid._outputs.output_folder,
+        sensor_grid=sensor_grid,
         conversion='0.265 0.670 0.065',  # divide by 179
         scene_file=octree_file,
         bsdf_folder=bsdfs
@@ -114,22 +98,18 @@ class AnnualIrradianceRayTracing(DAG):
         return [
             {
                 'from': DaylightContribution()._outputs.result_file,
-                'to': '{{item.name}}.ill'
+                'to': 'direct_sky.ill'
             }
         ]
 
-    @task(
-        template=DaylightCoefficient, needs=[split_grid],
-        loop=split_grid._outputs.grids_list, sub_folder='total_sky',
-        sub_paths={'sensor_grid': '{{item.path}}'}
-    )
+    @task(template=DaylightCoefficient)
     def total_sky(
         self,
         radiance_parameters=radiance_parameters,
         fixed_radiance_parameters='-aa 0.0 -I -c 1 -faf',
-        sensor_count='{{item.count}}',
+        sensor_count=sensor_count,
         sky_matrix=sky_matrix, sky_dome=sky_dome,
-        sensor_grid=split_grid._outputs.output_folder,
+        sensor_grid=sensor_grid,
         conversion='0.265 0.670 0.065',  # divide by 179
         scene_file=octree_file,
         bsdf_folder=bsdfs
@@ -137,47 +117,24 @@ class AnnualIrradianceRayTracing(DAG):
         return [
             {
                 'from': DaylightContribution()._outputs.result_file,
-                'to': '{{item.name}}.ill'
+                'to': 'total_sky.ill'
             }
         ]
 
     @task(
         template=AddRemoveSkyMatrix,
-        needs=[split_grid, direct_sun, total_sky, direct_sky],
-        loop=split_grid._outputs.grids_list, sub_folder='final'
+        needs=[direct_sun, total_sky, direct_sky]
     )
     def output_matrix_math(
         self,
-        direct_sky_matrix='direct_sky/{{item.name}}.ill',
-        total_sky_matrix='total_sky/{{item.name}}.ill',
-        sunlight_matrix='direct_sun/{{item.name}}.ill'
+        name=grid_name,
+        direct_sky_matrix=direct_sky._outputs.result_file,
+        total_sky_matrix=total_sky._outputs.result_file,
+        sunlight_matrix=direct_sun._outputs.result_file,
     ):
         return [
             {
                 'from': AddRemoveSkyMatrix()._outputs.results_file,
-                'to': '{{item.name}}.ill'
-            }
-        ]
-
-    @task(
-        template=MergeFiles, needs=[output_matrix_math]
-    )
-    def merge_total_results(self, name=grid_name, extension='.ill', folder='final'):
-        return [
-            {
-                'from': MergeFiles()._outputs.result_file,
-                'to': '../../results/total/{{self.name}}.ill'
-            }
-        ]
-
-    @task(
-        template=MergeFiles, needs=[output_matrix_math]
-    )
-    def merge_direct_results(
-            self, name=grid_name, extension='.ill', folder='direct_sun'):
-        return [
-            {
-                'from': MergeFiles()._outputs.result_file,
-                'to': '../../results/direct/{{self.name}}.ill'
+                'to': '../final/total/{{self.name}}.ill'
             }
         ]

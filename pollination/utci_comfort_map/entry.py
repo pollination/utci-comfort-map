@@ -21,7 +21,8 @@ from pollination.alias.inputs.comfort import wind_speed_input, \
 from pollination.alias.inputs.north import north_input
 from pollination.alias.inputs.runperiod import run_period_input
 from pollination.alias.inputs.radiancepar import rad_par_annual_input
-from pollination.alias.inputs.grid import sensor_count_input
+from pollination.alias.inputs.grid import grid_filter_input, \
+    min_sensor_count_input, cpu_count
 from pollination.alias.outputs.comfort import tcp_output, hsp_output, csp_output, \
     thermal_condition_output, utci_output, utci_category_output
 
@@ -64,11 +65,23 @@ class UtciComfortMapEntryPoint(DAG):
         'the simulation will be annual.', default='', alias=run_period_input
     )
 
-    sensor_count = Inputs.int(
-        default=200,
-        description='The maximum number of grid points per parallel execution.',
+    cpu_count = Inputs.int(
+        default=50,
+        description='The maximum number of CPUs for parallel execution. This will be '
+        'used to determine the number of sensors run by each worker.',
         spec={'type': 'integer', 'minimum': 1},
-        alias=sensor_count_input
+        alias=cpu_count
+    )
+
+    min_sensor_count = Inputs.int(
+        description='The minimum number of sensors in each sensor grid after '
+        'redistributing the sensors based on cpu_count. This value takes '
+        'precedence over the cpu_count and can be used to ensure that '
+        'the parallelization does not result in generating unnecessarily small '
+        'sensor grids. The default value is set to 1, which means that the '
+        'cpu_count is always respected.', default=1,
+        spec={'type': 'integer', 'minimum': 1},
+        alias=min_sensor_count_input
     )
 
     wind_speed = Inputs.str(
@@ -108,9 +121,11 @@ class UtciComfortMapEntryPoint(DAG):
     @task(template=SimParComfort)
     def create_sim_par(self, ddy=ddy, run_period=run_period, north=north) -> List[Dict]:
         return [
-            {'from': SimParComfort()._outputs.sim_par_json,
-             'to': 'energy/simulation_parameter.json'}
-            ]
+            {
+                'from': SimParComfort()._outputs.sim_par_json,
+                'to': 'energy/simulation_parameter.json'
+            }
+        ]
 
     @task(template=SimulateModel, needs=[create_sim_par])
     def run_energy_simulation(
@@ -168,8 +183,10 @@ class UtciComfortMapEntryPoint(DAG):
         self, model=model, use_visible='solar', exterior_offset=0.03
     ) -> List[Dict]:
         return [
-            {'from': ModelModifiersFromConstructions()._outputs.new_model,
-             'to': 'radiance/hbjson/1_energy_modifiers.hbjson'}
+            {
+                'from': ModelModifiersFromConstructions()._outputs.new_model,
+                'to': 'radiance/hbjson/1_energy_modifiers.hbjson'
+            }
         ]
 
     @task(template=MirrorModelSensorGrids, needs=[set_modifiers_from_constructions])
@@ -188,7 +205,8 @@ class UtciComfortMapEntryPoint(DAG):
     )
     def run_irradiance_simulation(
         self, model=mirror_sensor_grids._outputs.new_model, wea=create_wea._outputs.wea,
-        north=north, sensor_count=sensor_count, radiance_parameters=radiance_parameters
+        north=north, cpu_count=cpu_count, min_sensor_count=min_sensor_count,
+        radiance_parameters=radiance_parameters
     ) -> List[Dict]:
         pass
 
