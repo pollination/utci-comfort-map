@@ -181,7 +181,7 @@ class AnnualIrradianceEntryPoint(DAG):
     @task(template=CreateSkyMatrix)
     def create_total_sky(
         self, north=north, wea=wea, sky_type='total', output_type='solar',
-        output_format='ASCII', sun_up_hours='sun-up-hours'
+        sun_up_hours='sun-up-hours'
     ):
         return [
             {'from': CreateSkyMatrix()._outputs.sky_matrix, 'to': 'resources/sky.mtx'}
@@ -190,7 +190,7 @@ class AnnualIrradianceEntryPoint(DAG):
     @task(template=CreateSkyMatrix)
     def create_direct_sky(
         self, north=north, wea=wea, sky_type='sun-only', output_type='solar',
-        output_format='ASCII', sun_up_hours='sun-up-hours'
+        sun_up_hours='sun-up-hours'
     ):
         return [
             {
