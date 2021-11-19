@@ -87,7 +87,7 @@ class AnnualIrradianceRayTracing(DAG):
     def direct_sky(
         self,
         radiance_parameters=radiance_parameters,
-        fixed_radiance_parameters='-aa 0.0 -I -ab 1 -c 1',
+        fixed_radiance_parameters='-aa 0.0 -I -ab 1 -c 1 -faf',
         sensor_count=sensor_count,
         sky_matrix=sky_matrix_direct, sky_dome=sky_dome,
         sensor_grid=sensor_grid,
@@ -106,7 +106,7 @@ class AnnualIrradianceRayTracing(DAG):
     def total_sky(
         self,
         radiance_parameters=radiance_parameters,
-        fixed_radiance_parameters='-aa 0.0 -I -c 1',
+        fixed_radiance_parameters='-aa 0.0 -I -c 1 -faf',
         sensor_count=sensor_count,
         sky_matrix=sky_matrix, sky_dome=sky_dome,
         sensor_grid=sensor_grid,
