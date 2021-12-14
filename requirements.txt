@@ -1,6 +1,6 @@
 pollination-ladybug==0.2.1
 pollination-ladybug-comfort==0.2.3
-pollination-honeybee-radiance==0.15.1
+pollination-honeybee-radiance==0.16.0
 pollination-honeybee-energy==0.3.10
 pollination-lbt-honeybee==0.1.5
 pollination-alias==0.9.11
