@@ -4,13 +4,20 @@ from typing import Dict, List
 
 # pollination plugins and recipes
 from pollination.ladybug.translate import EpwToWea
-from pollination.ladybug_comfort.map import UtciMap, MapResultInfo, Tcp
-from pollination.honeybee_radiance.translate import CreateRadiantEnclosureInfo
-from pollination.honeybee_radiance.edit import MirrorModelSensorGrids
+from pollination.lbt_honeybee.edit import ModelModifiersFromConstructions
+
 from pollination.honeybee_energy.settings import SimParComfort
 from pollination.honeybee_energy.simulate import SimulateModel
 from pollination.honeybee_energy.translate import ModelOccSchedules
-from pollination.lbt_honeybee.edit import ModelModifiersFromConstructions
+
+from pollination.honeybee_radiance.sun import CreateSunMatrix, ParseSunUpHours
+from pollination.honeybee_radiance.translate import CreateRadianceFolderGrid
+from pollination.honeybee_radiance.octree import CreateOctree, CreateOctreeWithSky
+from pollination.honeybee_radiance.sky import CreateSkyDome, CreateSkyMatrix
+from pollination.honeybee_radiance.grid import SplitGridFolder, MergeFolderData
+from pollination.honeybee_radiance.viewfactor import ViewFactorModifiers
+
+from pollination.ladybug_comfort.map import MapResultInfo
 from pollination.path.copy import CopyMultiple
 
 # input/output alias
@@ -21,12 +28,12 @@ from pollination.alias.inputs.comfort import wind_speed_input, \
 from pollination.alias.inputs.north import north_input
 from pollination.alias.inputs.runperiod import run_period_input
 from pollination.alias.inputs.radiancepar import rad_par_annual_input
-from pollination.alias.inputs.grid import grid_filter_input, \
-    min_sensor_count_input, cpu_count
+from pollination.alias.inputs.grid import min_sensor_count_input, cpu_count
 from pollination.alias.outputs.comfort import tcp_output, hsp_output, csp_output, \
     thermal_condition_output, utci_output, utci_category_output
 
-from ._irradiance import AnnualIrradianceEntryPoint
+from ._radiance import RadianceMappingEntryPoint
+from ._comfort import ComfortMappingEntryPoint
 
 
 @dataclass
@@ -86,14 +93,14 @@ class UtciComfortMapEntryPoint(DAG):
 
     wind_speed = Inputs.str(
         description='A single number for meteorological wind speed in m/s or a string '
-        'of a JSON array with numbers that align with the result-sql reporting period. '
+        'of a JSON array with numbers that align with the input run period. '
         'This will be used for all indoor comfort evaluation while the EPW wind speed '
         'will be used for the outdoors.', default='0.5', alias=wind_speed_input
     )
 
     solarcal_parameters = Inputs.str(
         description='A SolarCalParameter string to customize the assumptions of '
-        'the SolarCal model.', default='--posture seated --sharp 135 '
+        'the SolarCal model.', default='--posture standing --sharp 135 '
         '--absorptivity 0.7 --emissivity 0.95',
         alias=solar_body_par_indoor_input
     )
@@ -111,13 +118,6 @@ class UtciComfortMapEntryPoint(DAG):
     )
 
     # tasks
-    @task(template=EpwToWea)
-    def create_wea(self, epw=epw, period=run_period) -> List[Dict]:
-        return [
-            {'from': EpwToWea()._outputs.wea,
-             'to': 'in.wea'}
-            ]
-
     @task(template=SimParComfort)
     def create_sim_par(self, ddy=ddy, run_period=run_period, north=north) -> List[Dict]:
         return [
@@ -133,28 +133,109 @@ class UtciComfortMapEntryPoint(DAG):
         sim_par=create_sim_par._outputs.sim_par_json
     ) -> List[Dict]:
         return [
-            {'from': SimulateModel()._outputs.sql, 'to': 'energy/eplusout.sql'}
+            {'from': SimulateModel()._outputs.sql, 'to': 'energy/eplusout.sql'},
+            {'from': SimulateModel()._outputs.idf, 'to': 'energy/in.idf'}
         ]
 
-    @task(template=CreateRadiantEnclosureInfo)
-    def get_enclosure_info(self, model=model) -> List[Dict]:
+    @task(template=EpwToWea)
+    def create_wea(self, epw=epw, period=run_period) -> List[Dict]:
         return [
             {
-                'from': CreateRadiantEnclosureInfo()._outputs.output_folder,
-                'to': 'radiance/enclosures'
-            },
-            {
-                'from': CreateRadiantEnclosureInfo()._outputs.enclosure_list_file,
-                'to': 'results/temperature/grids_info.json'
-            },
-            {
-                'from': CreateRadiantEnclosureInfo()._outputs.enclosure_list,
-                'description': 'Information about exported enclosure JSONs.'
+                'from': EpwToWea()._outputs.wea,
+                'to': 'radiance/shortwave/in.wea'
             }
         ]
 
-    @task(template=CopyMultiple, needs=[get_enclosure_info])
-    def copy_grid_info(self, src=get_enclosure_info._outputs.enclosure_list_file):
+    @task(template=CreateSunMatrix, needs=[create_wea])
+    def generate_sunpath(self, north=north, wea=create_wea._outputs.wea, output_type=1):
+        """Create sunpath for sun-up-hours."""
+        return [
+            {
+                'from': CreateSunMatrix()._outputs.sunpath,
+                'to': 'radiance/shortwave/resources/sunpath.mtx'
+            },
+            {
+                'from': CreateSunMatrix()._outputs.sun_modifiers,
+                'to': 'radiance/shortwave/resources/suns.mod'
+            }
+        ]
+
+    @task(template=CreateSkyDome)
+    def create_sky_dome(self):
+        """Create sky dome for daylight coefficient studies."""
+        return [
+            {
+                'from': CreateSkyDome()._outputs.sky_dome,
+                'to': 'radiance/shortwave/resources/sky.dome'
+            }
+        ]
+
+    @task(template=CreateSkyMatrix, needs=[create_wea])
+    def create_total_sky(
+        self, north=north, wea=create_wea._outputs.wea,
+        sky_type='total', output_type='solar', sun_up_hours='sun-up-hours'
+    ):
+        return [
+            {
+                'from': CreateSkyMatrix()._outputs.sky_matrix,
+                'to': 'radiance/shortwave/resources/sky.mtx'
+            }
+        ]
+
+    @task(template=CreateSkyMatrix, needs=[create_wea])
+    def create_direct_sky(
+        self, north=north, wea=create_wea._outputs.wea,
+        sky_type='sun-only', output_type='solar', sun_up_hours='sun-up-hours'
+    ):
+        return [
+            {
+                'from': CreateSkyMatrix()._outputs.sky_matrix,
+                'to': 'radiance/shortwave/resources/sky_direct.mtx'
+            }
+        ]
+
+    @task(template=ParseSunUpHours, needs=[generate_sunpath])
+    def parse_sun_up_hours(self, sun_modifiers=generate_sunpath._outputs.sun_modifiers):
+        return [
+            {
+                'from': ParseSunUpHours()._outputs.sun_up_hours,
+                'to': 'radiance/shortwave/sun-up-hours.txt'
+            }
+        ]
+
+    @task(template=ModelModifiersFromConstructions)
+    def set_modifiers_from_constructions(
+        self, model=model, use_visible='solar', exterior_offset=0.02
+    ) -> List[Dict]:
+        return [
+            {
+                'from': ModelModifiersFromConstructions()._outputs.new_model,
+                'to': 'radiance/shortwave/model.hbjson'
+            }
+        ]
+
+    @task(template=CreateRadianceFolderGrid, needs=[set_modifiers_from_constructions])
+    def create_rad_folder(
+        self, input_model=set_modifiers_from_constructions._outputs.new_model
+    ):
+        """Translate the input model to a radiance folder."""
+        return [
+            {
+                'from': CreateRadianceFolderGrid()._outputs.model_folder,
+                'to': 'radiance/shortwave/model'
+            },
+            {
+                'from': CreateRadianceFolderGrid()._outputs.sensor_grids_file,
+                'to': 'results/temperature/grids_info.json'
+            },
+            {
+                'from': CreateRadianceFolderGrid()._outputs.sensor_grids,
+                'description': 'Sensor grids information.'
+            }
+        ]
+
+    @task(template=CopyMultiple, needs=[create_rad_folder])
+    def copy_grid_info(self, src=create_rad_folder._outputs.sensor_grids_file):
         return [
             {
                 'from': CopyMultiple()._outputs.dst_1,
@@ -178,73 +259,234 @@ class UtciComfortMapEntryPoint(DAG):
             }
         ]
 
-    @task(template=ModelModifiersFromConstructions)
-    def set_modifiers_from_constructions(
-        self, model=model, use_visible='solar', exterior_offset=0.03
-    ) -> List[Dict]:
+    @task(
+        template=SplitGridFolder, needs=[create_rad_folder],
+        sub_paths={'input_folder': 'grid'}
+    )
+    def split_grid_folder(
+        self, input_folder=create_rad_folder._outputs.model_folder,
+        cpu_count=cpu_count, cpus_per_grid=3, min_sensor_count=min_sensor_count
+    ):
+        """Split sensor grid folder based on the number of CPUs"""
         return [
             {
-                'from': ModelModifiersFromConstructions()._outputs.new_model,
-                'to': 'radiance/hbjson/1_energy_modifiers.hbjson'
+                'from': SplitGridFolder()._outputs.output_folder,
+                'to': 'radiance/grid'
+            },
+            {
+                'from': SplitGridFolder()._outputs.dist_info,
+                'to': 'initial_results/results/temperature/_redist_info.json'
+            },
+            {
+                'from': SplitGridFolder()._outputs.sensor_grids,
+                'description': 'Sensor grids information.'
+            }
+        ]
+    
+    @task(template=CopyMultiple, needs=[split_grid_folder])
+    def copy_redist_info(self, src=split_grid_folder._outputs.dist_info):
+        return [
+            {
+                'from': CopyMultiple()._outputs.dst_1,
+                'to': 'initial_results/results/condition/_redist_info.json'
+            },
+            {
+                'from': CopyMultiple()._outputs.dst_2,
+                'to': 'initial_results/results/condition_intensity/_redist_info.json'
+            },
+            {
+                'from': CopyMultiple()._outputs.dst_3,
+                'to': 'initial_results/metrics/TCP/_redist_info.json'
+            },
+            {
+                'from': CopyMultiple()._outputs.dst_4,
+                'to': 'initial_results/metrics/HSP/_redist_info.json'
+            },
+            {
+                'from': CopyMultiple()._outputs.dst_5,
+                'to': 'initial_results/metrics/CSP/_redist_info.json'
             }
         ]
 
-    @task(template=MirrorModelSensorGrids, needs=[set_modifiers_from_constructions])
-    def mirror_sensor_grids(
-        self, model=set_modifiers_from_constructions._outputs.new_model
-    ) -> List[Dict]:
+    @task(template=CreateOctree, needs=[create_rad_folder])
+    def create_octree(self, model=create_rad_folder._outputs.model_folder):
+        """Create octree from radiance folder."""
         return [
-            {'from': MirrorModelSensorGrids()._outputs.new_model,
-             'to': 'radiance/hbjson/2_mirrored_grids.hbjson'}
+            {
+                'from': CreateOctree()._outputs.scene_file,
+                'to': 'radiance/shortwave/resources/scene.oct'
+            }
         ]
 
     @task(
-        template=AnnualIrradianceEntryPoint,
-        needs=[create_wea, mirror_sensor_grids],
-        sub_folder='radiance/shortwave',  # create a subfolder for the whole simulation
+        template=CreateOctreeWithSky, needs=[generate_sunpath, create_rad_folder]
     )
-    def run_irradiance_simulation(
-        self, model=mirror_sensor_grids._outputs.new_model, wea=create_wea._outputs.wea,
-        north=north, cpu_count=cpu_count, min_sensor_count=min_sensor_count,
-        radiance_parameters=radiance_parameters
+    def create_octree_with_suns(
+        self, model=create_rad_folder._outputs.model_folder,
+        sky=generate_sunpath._outputs.sunpath
+    ):
+        """Create octree from radiance folder and sunpath for direct studies."""
+        return [
+            {
+                'from': CreateOctreeWithSky()._outputs.scene_file,
+                'to': 'radiance/shortwave/resources/scene_with_suns.oct'
+            }
+        ]
+
+    @task(template=ViewFactorModifiers)
+    def create_view_factor_modifiers(
+        self, model=model, include_sky='include', include_ground='include',
+        grouped_shades='grouped'
+    ):
+        """Create octree from radiance folder and sunpath for direct studies."""
+        return [
+            {
+                'from': ViewFactorModifiers()._outputs.modifiers_file,
+                'to': 'radiance/longwave/resources/scene.mod'
+            },
+            {
+                'from': ViewFactorModifiers()._outputs.scene_file,
+                'to': 'radiance/longwave/resources/scene.oct'
+            }
+        ]
+
+    @task(template=ModelOccSchedules)
+    def create_model_occ_schedules(self, model=model, period=run_period) -> List[Dict]:
+        return [
+            {
+                'from': ModelOccSchedules()._outputs.occ_schedule_json,
+                'to': 'metrics/occupancy_schedules.json'
+            }
+        ]
+
+    @task(
+        template=RadianceMappingEntryPoint,
+        needs=[
+            create_sky_dome, create_octree_with_suns, create_octree, generate_sunpath,
+            create_total_sky, create_direct_sky, create_rad_folder, split_grid_folder,
+            create_view_factor_modifiers
+        ],
+        loop=split_grid_folder._outputs.sensor_grids,
+        sub_folder='radiance',
+        sub_paths={'sensor_grid': '{{item.full_id}}.pts'}
+    )
+    def run_radiance_simulation(
+        self,
+        radiance_parameters=radiance_parameters,
+        model=model,
+        octree_file_with_suns=create_octree_with_suns._outputs.scene_file,
+        octree_file=create_octree._outputs.scene_file,
+        octree_file_view_factor=create_view_factor_modifiers._outputs.scene_file,
+        grid_name='{{item.full_id}}',
+        sensor_grid=split_grid_folder._outputs.output_folder,
+        sensor_count='{{item.count}}',
+        sky_dome=create_sky_dome._outputs.sky_dome,
+        sky_matrix=create_total_sky._outputs.sky_matrix,
+        sky_matrix_direct=create_direct_sky._outputs.sky_matrix,
+        sun_modifiers=generate_sunpath._outputs.sun_modifiers,
+        view_factor_modifiers=create_view_factor_modifiers._outputs.modifiers_file
     ) -> List[Dict]:
         pass
 
     @task(
-        template=UtciMap,
-        needs=[run_energy_simulation, run_irradiance_simulation, get_enclosure_info],
-        loop=get_enclosure_info._outputs.enclosure_list,
-        sub_folder='results',  # create a subfolder for each grid
+        template=ComfortMappingEntryPoint,
+        needs=[
+            parse_sun_up_hours, create_view_factor_modifiers, create_model_occ_schedules,
+            run_energy_simulation, run_radiance_simulation, split_grid_folder
+        ],
+        loop=split_grid_folder._outputs.sensor_grids,
+        sub_folder='initial_results',
         sub_paths={
-            'enclosure_info': '{{item.id}}.json',
-            'total_irradiance': '{{item.id}}.ill',
-            'direct_irradiance': '{{item.id}}.ill',
-            'ref_irradiance': '{{item.id}}_ref.ill',
-            'sun_up_hours': 'sun-up-hours.txt'
+            'enclosure_info': '{{item.full_id}}.json',
+            'view_factors': '{{item.full_id}}.csv',
+            'indirect_irradiance': '{{item.full_id}}.ill',
+            'direct_irradiance': '{{item.full_id}}.ill',
+            'ref_irradiance': '{{item.full_id}}.ill'
         }
     )
     def run_comfort_map(
-        self, result_sql=run_energy_simulation._outputs.sql,
-        enclosure_info=get_enclosure_info._outputs.output_folder, epw=epw,
-        total_irradiance='radiance/shortwave/results/total',
+        self,
+        epw=epw,
+        result_sql=run_energy_simulation._outputs.sql,
+        grid_name='{{item.full_id}}',
+        enclosure_info='radiance/enclosures',
+        view_factors='radiance/longwave/view_factors',
+        modifiers=create_view_factor_modifiers._outputs.modifiers_file,
+        indirect_irradiance='radiance/shortwave/results/indirect',
         direct_irradiance='radiance/shortwave/results/direct',
-        ref_irradiance='radiance/shortwave/results/total',
-        sun_up_hours='radiance/shortwave/results/total',
-        wind_speed=wind_speed, solarcal_par=solarcal_parameters,
-        comfort_par=comfort_parameters, run_period=run_period
+        ref_irradiance='radiance/shortwave/results/reflected',
+        sun_up_hours=parse_sun_up_hours._outputs.sun_up_hours,
+        occ_schedules=create_model_occ_schedules._outputs.occ_schedule_json,
+        run_period=run_period,
+        wind_speed=wind_speed,
+        solarcal_par=solarcal_parameters,
+        comfort_par=comfort_parameters
     ) -> List[Dict]:
+        pass
+
+    @task(template=MergeFolderData, needs=[run_comfort_map])
+    def restructure_temperature_results(
+        self, input_folder='initial_results/results/temperature', extension='csv'
+    ):
         return [
             {
-                'from': UtciMap()._outputs.temperature_map,
-                'to': 'temperature/{{item.id}}.csv'
-            },
+                'from': MergeFolderData()._outputs.output_folder,
+                'to': 'results/temperature'
+            }
+        ]
+
+    @task(template=MergeFolderData, needs=[run_comfort_map])
+    def restructure_condition_results(
+        self, input_folder='initial_results/results/condition', extension='csv'
+    ):
+        return [
             {
-                'from': UtciMap()._outputs.condition_map,
-                'to': 'condition/{{item.id}}.csv'
-            },
+                'from': MergeFolderData()._outputs.output_folder,
+                'to': 'results/condition'
+            }
+        ]
+
+    @task(template=MergeFolderData, needs=[run_comfort_map])
+    def restructure_condition_intensity_results(
+        self, input_folder='initial_results/results/condition_intensity', extension='csv'
+    ):
+        return [
             {
-                'from': UtciMap()._outputs.category_map,
-                'to': 'condition_intensity/{{item.id}}.csv'
+                'from': MergeFolderData()._outputs.output_folder,
+                'to': 'results/condition_intensity'
+            }
+        ]
+
+    @task(template=MergeFolderData, needs=[run_comfort_map])
+    def restructure_tcp_results(
+        self, input_folder='initial_results/metrics/TCP', extension='csv'
+    ):
+        return [
+            {
+                'from': MergeFolderData()._outputs.output_folder,
+                'to': 'metrics/TCP'
+            }
+        ]
+
+    @task(template=MergeFolderData, needs=[run_comfort_map])
+    def restructure_hsp_results(
+        self, input_folder='initial_results/metrics/HSP', extension='csv'
+    ):
+        return [
+            {
+                'from': MergeFolderData()._outputs.output_folder,
+                'to': 'metrics/HSP'
+            }
+        ]
+
+    @task(template=MergeFolderData, needs=[run_comfort_map])
+    def restructure_csp_results(
+        self, input_folder='initial_results/metrics/CSP', extension='csv'
+    ):
+        return [
+            {
+                'from': MergeFolderData()._outputs.output_folder,
+                'to': 'metrics/CSP'
             }
         ]
 
@@ -265,36 +507,6 @@ class UtciComfortMapEntryPoint(DAG):
                 'from': MapResultInfo()._outputs.condition_intensity_info,
                 'to': 'results/condition_intensity/results_info.json'
             }
-        ]
-
-    @task(template=ModelOccSchedules)
-    def create_model_occ_schedules(
-        self, model=model, period=run_period
-    ) -> List[Dict]:
-        return [
-            {'from': ModelOccSchedules()._outputs.occ_schedule_json,
-             'to': 'metrics/occupancy_schedules.json'}
-        ]
-
-    @task(
-        template=Tcp,
-        needs=[create_model_occ_schedules, get_enclosure_info, run_comfort_map],
-        loop=get_enclosure_info._outputs.enclosure_list,
-        sub_folder='metrics',  # create a subfolder for the whole simulation
-        sub_paths={
-            'condition_csv': '{{item.id}}.csv',
-            'enclosure_info': '{{item.id}}.json'
-        }
-    )
-    def compute_tcp(
-        self, condition_csv='results/condition',
-        enclosure_info=get_enclosure_info._outputs.output_folder,
-        occ_schedule_json=create_model_occ_schedules._outputs.occ_schedule_json
-    ) -> List[Dict]:
-        return [
-            {'from': Tcp()._outputs.tcp, 'to': 'TCP/{{item.id}}.csv'},
-            {'from': Tcp()._outputs.hsp, 'to': 'HSP/{{item.id}}.csv'},
-            {'from': Tcp()._outputs.csp, 'to': 'CSP/{{item.id}}.csv'}
         ]
 
     # outputs
