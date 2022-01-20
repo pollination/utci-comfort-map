@@ -29,6 +29,7 @@ from pollination.alias.inputs.north import north_input
 from pollination.alias.inputs.runperiod import run_period_input
 from pollination.alias.inputs.radiancepar import rad_par_annual_input
 from pollination.alias.inputs.grid import min_sensor_count_input, cpu_count
+from pollination.alias.inputs.schedule import comfort_schedule_csv_input
 from pollination.alias.outputs.comfort import tcp_output, hsp_output, csp_output, \
     thermal_condition_output, utci_output, utci_category_output
 
@@ -94,8 +95,11 @@ class UtciComfortMapEntryPoint(DAG):
     wind_speed = Inputs.str(
         description='A single number for meteorological wind speed in m/s or a string '
         'of a JSON array with numbers that align with the input run period. '
-        'This will be used for all indoor comfort evaluation while the EPW wind speed '
-        'will be used for the outdoors.', default='0.5', alias=wind_speed_input
+        'This will be used for all outdoor comfort evaluation. Note that all '
+        'sensors on the indoors will always use a wind speed of 0.5 m/s, '
+        'which is the lowest acceptable value for the UTCI model. If '
+        'None, the EPW wind speed will be used for all outdoor sensors.',
+        default='None', alias=wind_speed_input
     )
 
     solarcal_parameters = Inputs.str(
@@ -109,6 +113,13 @@ class UtciComfortMapEntryPoint(DAG):
         description='An UTCIParameter string to customize the assumptions of '
         'the UTCI comfort model.', default='--cold 9 --heat 26',
         alias=utci_comfort_par_input
+    )
+
+    schedule = Inputs.file(
+        description='An optional path to a CSV file to specify the relevant times '
+        'during which comfort should be evaluated. If specified, this will be used '
+        'for all sensors. Values should be 0-1 separated by new line.',
+        extensions=['txt', 'csv'], optional=True, alias=comfort_schedule_csv_input
     )
 
     radiance_parameters = Inputs.str(
@@ -417,6 +428,7 @@ class UtciComfortMapEntryPoint(DAG):
         ref_irradiance='radiance/shortwave/results/reflected',
         sun_up_hours=parse_sun_up_hours._outputs.sun_up_hours,
         occ_schedules=create_model_occ_schedules._outputs.occ_schedule_json,
+        schedule=schedule,
         run_period=run_period,
         wind_speed=wind_speed,
         solarcal_par=solarcal_parameters,

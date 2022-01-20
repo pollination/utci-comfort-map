@@ -68,6 +68,13 @@ class ComfortMappingEntryPoint(DAG):
         'the input model.'
     )
 
+    schedule = Inputs.file(
+        description='An optional path to a CSV file to specify the relevant times '
+        'during which comfort should be evaluated. If specified, this will override '
+        'the occ-schedules for both indoor and outdoor conditions. Values '
+        'should be 0-1 separated by new line.', optional=True
+    )
+
     run_period = Inputs.str(
         description='An AnalysisPeriod string to set the start and end dates of '
         'the simulation (eg. "6/21 to 9/21 between 0 and 23 @1"). If None, '
@@ -77,9 +84,10 @@ class ComfortMappingEntryPoint(DAG):
     wind_speed = Inputs.str(
         description='A single number for meteorological wind speed in m/s or a string '
         'of a JSON array with numbers that align with the input run period. '
-        'This will be used for all indoor comfort evaluation while the EPW wind speed '
-        'will be used for the outdoors.', default='0.5'
+        'This will be used for all outdoor comfort evaluation. If None, '
+        'the EPW wind speed will be used for all outdoor sensors.', default='None'
     )
+
     solarcal_parameters = Inputs.str(
         description='A SolarCalParameter string to customize the assumptions of '
         'the SolarCal model.', default='--posture standing --sharp 135 '
@@ -165,7 +173,8 @@ class ComfortMappingEntryPoint(DAG):
     @task(template=AirSpeedJson)
     def create_air_speed_json(
         self, epw=epw, enclosure_info=enclosure_info, multiply_by=1.0,
-        indoor_air_speed=wind_speed, run_period=run_period, name=grid_name
+        indoor_air_speed='0.5', outdoor_air_speed=wind_speed,
+        run_period=run_period, name=grid_name
     ) -> List[Dict]:
         return [
             {
@@ -215,6 +224,7 @@ class ComfortMappingEntryPoint(DAG):
         condition_csv=process_utci_matrix._outputs.condition_map,
         enclosure_info=enclosure_info,
         occ_schedule_json=occ_schedules,
+        schedule=schedule,
         name=grid_name
     ) -> List[Dict]:
         return [
