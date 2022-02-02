@@ -69,10 +69,10 @@ class ComfortMappingEntryPoint(DAG):
     )
 
     schedule = Inputs.file(
-        description='An optional path to a CSV file to specify the relevant times '
-        'during which comfort should be evaluated. If specified, this will override '
-        'the occ-schedules for both indoor and outdoor conditions. Values '
-        'should be 0-1 separated by new line.', optional=True
+        description='A CSV file containing a single number for meteorological wind '
+        'speed in m/s or several rows of wind speeds that align with the length of the '
+        'run period. This will be used for all outdoor comfort evaluation.',
+        optional=True
     )
 
     run_period = Inputs.str(
@@ -81,11 +81,11 @@ class ComfortMappingEntryPoint(DAG):
         'the simulation will be annual.', default=''
     )
 
-    wind_speed = Inputs.str(
+    wind_speed = Inputs.file(
         description='A single number for meteorological wind speed in m/s or a string '
         'of a JSON array with numbers that align with the input run period. '
         'This will be used for all outdoor comfort evaluation. If None, '
-        'the EPW wind speed will be used for all outdoor sensors.', default='None'
+        'the EPW wind speed will be used for all outdoor sensors.', optional=True
     )
 
     solarcal_parameters = Inputs.str(
@@ -173,7 +173,7 @@ class ComfortMappingEntryPoint(DAG):
     @task(template=AirSpeedJson)
     def create_air_speed_json(
         self, epw=epw, enclosure_info=enclosure_info, multiply_by=1.0,
-        indoor_air_speed='0.5', outdoor_air_speed=wind_speed,
+        outdoor_air_speed=wind_speed,
         run_period=run_period, name=grid_name
     ) -> List[Dict]:
         return [

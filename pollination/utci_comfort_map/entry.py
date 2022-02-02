@@ -92,14 +92,14 @@ class UtciComfortMapEntryPoint(DAG):
         alias=min_sensor_count_input
     )
 
-    wind_speed = Inputs.str(
-        description='A single number for meteorological wind speed in m/s or a string '
-        'of a JSON array with numbers that align with the input run period. '
-        'This will be used for all outdoor comfort evaluation. Note that all '
-        'sensors on the indoors will always use a wind speed of 0.5 m/s, '
+    wind_speed = Inputs.file(
+        description='A CSV file containing a single number for meteorological wind '
+        'speed in m/s or several rows of wind speeds that align with the length of the '
+        'run period. This will be used for all outdoor comfort evaluation. Note that '
+        'all sensors on the indoors will always use a wind speed of 0.5 m/s, '
         'which is the lowest acceptable value for the UTCI model. If '
         'None, the EPW wind speed will be used for all outdoor sensors.',
-        default='None', alias=wind_speed_input
+        extensions=['txt', 'csv'], optional=True, alias=wind_speed_input
     )
 
     solarcal_parameters = Inputs.str(
