@@ -1,4 +1,4 @@
-from pollination_dsl.dag import Inputs, DAG, task, Outputs
+from pollination_dsl.dag import Inputs, DAG, task
 from dataclasses import dataclass
 from typing import Dict, List
 
@@ -26,7 +26,7 @@ class ComfortMappingEntryPoint(DAG):
     grid_name = Inputs.str(
         description='Sensor grid file name (used to name the final result files).'
     )
-    
+
     enclosure_info = Inputs.file(
         description='A JSON file containing information about the radiant '
         'enclosure that sensor points belong to.',

@@ -31,7 +31,7 @@ from pollination.alias.inputs.radiancepar import rad_par_annual_input
 from pollination.alias.inputs.grid import min_sensor_count_input, cpu_count
 from pollination.alias.inputs.schedule import comfort_schedule_csv_input
 from pollination.alias.outputs.comfort import tcp_output, hsp_output, csp_output, \
-    thermal_condition_output, utci_output, utci_category_output
+    thermal_condition_output, utci_output, utci_category_output, env_conditions_output
 
 from ._radiance import RadianceMappingEntryPoint
 from ._comfort import ComfortMappingEntryPoint
@@ -216,7 +216,8 @@ class UtciComfortMapEntryPoint(DAG):
 
     @task(template=ModelModifiersFromConstructions)
     def set_modifiers_from_constructions(
-        self, model=model, use_visible='solar', exterior_offset=0.02
+        self, model=model, use_visible='solar', dynamic_behavior='static',
+        exterior_offset=0.02
     ) -> List[Dict]:
         return [
             {
@@ -267,6 +268,10 @@ class UtciComfortMapEntryPoint(DAG):
             {
                 'from': CopyMultiple()._outputs.dst_5,
                 'to': 'metrics/CSP/grids_info.json'
+            },
+            {
+                'from': CopyMultiple()._outputs.dst_6,
+                'to': 'initial_results/conditions/grids_info.json'
             }
         ]
 
@@ -289,11 +294,15 @@ class UtciComfortMapEntryPoint(DAG):
                 'to': 'initial_results/results/temperature/_redist_info.json'
             },
             {
+                'from': SplitGridFolder()._outputs.sensor_grids_file,
+                'to': 'radiance/grid/_split_info.json'
+            },
+            {
                 'from': SplitGridFolder()._outputs.sensor_grids,
                 'description': 'Sensor grids information.'
             }
         ]
-    
+
     @task(template=CopyMultiple, needs=[split_grid_folder])
     def copy_redist_info(self, src=split_grid_folder._outputs.dist_info):
         return [
@@ -316,6 +325,10 @@ class UtciComfortMapEntryPoint(DAG):
             {
                 'from': CopyMultiple()._outputs.dst_5,
                 'to': 'initial_results/metrics/CSP/_redist_info.json'
+            },
+            {
+                'from': CopyMultiple()._outputs.dst_6,
+                'to': 'initial_results/conditions/_redist_info.json'
             }
         ]
 
@@ -522,9 +535,11 @@ class UtciComfortMapEntryPoint(DAG):
         ]
 
     # outputs
-    results = Outputs.folder(
-        source='results',
-        description='A folder containing all results.'
+    environmental_conditions = Outputs.folder(
+        source='initial_results/conditions',
+        description='A folder containing the environmental conditions that were input '
+        'to the thermal comfort model. This include the MRT, air temperature, longwave '
+        'MRT, shortwave MRT delta, and relative humidity.', alias=env_conditions_output
     )
 
     utci = Outputs.folder(
