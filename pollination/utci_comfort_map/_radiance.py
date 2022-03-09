@@ -1,4 +1,4 @@
-from pollination_dsl.dag import Inputs, DAG, task, Outputs
+from pollination_dsl.dag import Inputs, DAG, task
 from dataclasses import dataclass
 
 from pollination.honeybee_radiance.grid import MirrorGrid, RadiantEnclosureInfo
@@ -6,8 +6,6 @@ from pollination.honeybee_radiance.viewfactor import SphericalViewFactorContribu
 from pollination.honeybee_radiance.contrib import DaylightContribution
 from pollination.honeybee_radiance.coefficient import DaylightCoefficient
 from pollination.honeybee_radiance.sky import SubtractSkyMatrix
-
-from pollination.path.copy import Copy
 
 
 @dataclass
