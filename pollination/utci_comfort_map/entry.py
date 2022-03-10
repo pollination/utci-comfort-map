@@ -18,7 +18,7 @@ from pollination.honeybee_radiance.grid import SplitGridFolder, MergeFolderData
 from pollination.honeybee_radiance.viewfactor import ViewFactorModifiers
 
 from pollination.ladybug_comfort.map import MapResultInfo
-from pollination.path.copy import CopyMultiple
+from pollination.path.copy import CopyMultiple, Copy
 
 # input/output alias
 from pollination.alias.inputs.model import hbjson_model_grid_room_input
@@ -531,6 +531,17 @@ class UtciComfortMapEntryPoint(DAG):
             {
                 'from': MapResultInfo()._outputs.condition_intensity_info,
                 'to': 'results/condition_intensity/results_info.json'
+            }
+        ]
+
+    @task(template=Copy, needs=[create_result_info])
+    def copy_result_info(
+        self, src=create_result_info._outputs.temperature_info
+    ) -> List[Dict]:
+        return [
+            {
+                'from': Copy()._outputs.dst,
+                'to': 'initial_results/conditions/results_info.json'
             }
         ]
 
