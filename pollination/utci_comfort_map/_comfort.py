@@ -82,10 +82,16 @@ class ComfortMappingEntryPoint(DAG):
     )
 
     wind_speed = Inputs.file(
-        description='A single number for meteorological wind speed in m/s or a string '
-        'of a JSON array with numbers that align with the input run period. '
+        description='A CSV with numbers that align with the input run period. '
         'This will be used for all outdoor comfort evaluation. If None, '
         'the EPW wind speed will be used for all outdoor sensors.', optional=True
+    )
+
+    air_speed_mtx = Inputs.file(
+        description='A CSV file with with a matrix of air speed values in m/s. '
+        'Note that these values are not meteorological and should be AT HUMAN '
+        'SUBJECT LEVEL. If specified, this overrides the wind-speed input.',
+        optional=True
     )
 
     solarcal_parameters = Inputs.str(
@@ -197,6 +203,7 @@ class ComfortMappingEntryPoint(DAG):
         rad_temperature_mtx=create_longwave_mrt_map._outputs.longwave_mrt_map,
         rad_delta_mtx=create_shortwave_mrt_map._outputs.shortwave_mrt_map,
         wind_speed_json=create_air_speed_json._outputs.air_speeds,
+        air_speed_mtx=air_speed_mtx,
         comfort_par=comfort_parameters,
         name=grid_name
     ) -> List[Dict]:

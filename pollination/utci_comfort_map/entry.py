@@ -14,7 +14,8 @@ from pollination.honeybee_radiance.sun import CreateSunMatrix, ParseSunUpHours
 from pollination.honeybee_radiance.translate import CreateRadianceFolderGrid
 from pollination.honeybee_radiance.octree import CreateOctree, CreateOctreeWithSky
 from pollination.honeybee_radiance.sky import CreateSkyDome, CreateSkyMatrix
-from pollination.honeybee_radiance.grid import SplitGridFolder, MergeFolderData
+from pollination.honeybee_radiance.grid import SplitGridFolder, MergeFolderData, \
+    SplitDataFolder
 from pollination.honeybee_radiance.viewfactor import ViewFactorModifiers
 
 from pollination.ladybug_comfort.map import MapResultInfo
@@ -100,6 +101,16 @@ class UtciComfortMapEntryPoint(DAG):
         'which is the lowest acceptable value for the UTCI model. If '
         'None, the EPW wind speed will be used for all outdoor sensors.',
         extensions=['txt', 'csv'], optional=True, alias=wind_speed_input
+    )
+
+    air_speed_matrices = Inputs.folder(
+        description='An optional folder with csv files that align with the model '
+        'sensor grids. Each csv file should have the same name as the sensor '
+        'grid identifier. Each csv file should contain a matrix of air speed '
+        'values in m/s with one row per sensor and one column per timestep of the run '
+        'period. Note that these values are not meteorological and should be AT HUMAN '
+        'SUBJECT LEVEL. If specified, this overrides the wind speed input.',
+        optional=True
     )
 
     solarcal_parameters = Inputs.str(
@@ -374,6 +385,23 @@ class UtciComfortMapEntryPoint(DAG):
             }
         ]
 
+    @task(
+        template=SplitDataFolder, needs=[create_rad_folder]
+    )
+    def split_air_speed_folder(
+        self, input_folder=air_speed_matrices,
+        grid_info_file=create_rad_folder._outputs.sensor_grids_file,
+        cpu_count=cpu_count, cpus_per_grid=3, min_sensor_count=min_sensor_count,
+        extension='.csv'
+    ):
+        """Split sensor grid folder based on the number of CPUs"""
+        return [
+            {
+                'from': SplitDataFolder()._outputs.output_folder,
+                'to': 'initial_results/conditions/air_speeds'
+            }
+        ]
+
     @task(template=ModelOccSchedules)
     def create_model_occ_schedules(self, model=model, period=run_period) -> List[Dict]:
         return [
@@ -416,7 +444,8 @@ class UtciComfortMapEntryPoint(DAG):
         template=ComfortMappingEntryPoint,
         needs=[
             parse_sun_up_hours, create_view_factor_modifiers, create_model_occ_schedules,
-            run_energy_simulation, run_radiance_simulation, split_grid_folder
+            run_energy_simulation, run_radiance_simulation, split_grid_folder,
+            split_air_speed_folder
         ],
         loop=split_grid_folder._outputs.sensor_grids,
         sub_folder='initial_results',
@@ -425,7 +454,8 @@ class UtciComfortMapEntryPoint(DAG):
             'view_factors': '{{item.full_id}}.csv',
             'indirect_irradiance': '{{item.full_id}}.ill',
             'direct_irradiance': '{{item.full_id}}.ill',
-            'ref_irradiance': '{{item.full_id}}.ill'
+            'ref_irradiance': '{{item.full_id}}.ill',
+            'air_speed_mtx': '{{item.full_id}}.csv'
         }
     )
     def run_comfort_map(
@@ -444,6 +474,7 @@ class UtciComfortMapEntryPoint(DAG):
         schedule=schedule,
         run_period=run_period,
         wind_speed=wind_speed,
+        air_speed_mtx=split_air_speed_folder._outputs.output_folder,
         solarcal_par=solarcal_parameters,
         comfort_par=comfort_parameters
     ) -> List[Dict]:
