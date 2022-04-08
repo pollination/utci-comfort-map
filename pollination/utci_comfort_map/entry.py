@@ -20,6 +20,7 @@ from pollination.honeybee_radiance.viewfactor import ViewFactorModifiers
 
 from pollination.ladybug_comfort.map import MapResultInfo
 from pollination.path.copy import CopyMultiple, Copy
+from pollination.honeybee_vtk.translate import Translate as TranslateVTKJS
 
 # input/output alias
 from pollination.alias.inputs.model import hbjson_model_grid_room_input
@@ -580,7 +581,28 @@ class UtciComfortMapEntryPoint(DAG):
             }
         ]
 
+    @task(
+        template=TranslateVTKJS,
+        needs=[restructure_tcp_results, restructure_hsp_results,
+               restructure_csp_results, create_result_info]
+    )
+    def create_vtkjs(
+        self, hbjson_file=model, file_type='vtkjs', grid_options='points',
+        data='metrics'
+    ):
+        return [
+            {
+                'from': TranslateVTKJS()._outputs.output_file,
+                'to': 'visualization/utci_comfort.vtkjs'
+            }
+        ]
+
     # outputs
+    visualization = Outputs.file(
+        source='visualization/pmv_comfort.vtkjs',
+        description='Results visualization in 3D vtkjs format.'
+    )
+
     environmental_conditions = Outputs.folder(
         source='initial_results/conditions',
         description='A folder containing the environmental conditions that were input '
