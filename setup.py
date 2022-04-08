@@ -8,6 +8,10 @@ with open('requirements.txt') as f:
     requirements = f.read().splitlines()
     requirements = [req.replace('==', '>=') for req in requirements]
 
+with open('extras-requirements.txt') as f:
+    extras_requirements = f.read().splitlines()
+    extras_requirements = [req.replace('==', '>=') for req in extras_requirements]
+
 # normal setuptool inputs
 setuptools.setup(
     name='pollination-utci-comfort-map',                                     # will be used for package name
@@ -17,6 +21,7 @@ setuptools.setup(
         include=['pollination.*'], exclude=['tests', '.github']
     ),
     install_requires=requirements,
+    extras_require={'viz': extras_requirements},
     use_scm_version=True,
     setup_requires=['setuptools_scm'],
     url='https://github.com/pollination/utci-comfort-map',                   # will be translated to home
