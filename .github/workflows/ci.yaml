@@ -60,6 +60,27 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           QB_POLLINATION_TOKEN: ${{ secrets.POLLINATION_STAGING_LADYBUGBOT_TOKEN }}
+      - uses: actions/checkout@v2
+        with:
+          ref: visualization
+          fetch-depth: 0
+      - name: rebase visualization branch
+        run: |
+          git config --global user.email "ci@pollination.cloud"
+          git config --global user.name "GitHub Actions"
+          git rebase origin/master
+      - name: install python viz dependencies
+        run: pip install .[viz]
+      - name: deploy viz to staging
+        env:
+          TAG: ${{ needs.deploy.outputs.tag }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          QB_POLLINATION_TOKEN: ${{ secrets.POLLINATION_STAGING_LADYBUGBOT_TOKEN }}
+        run: |
+          TAG=$(echo "${TAG:?}-viz" | sed 's/[[:space:]]//g')
+          echo $TAG
+          queenbee
+          pollination dsl push pollination-utci-comfort-map --tag $TAG -e https://api.staging.pollination.cloud -src https://api.staging.pollination.cloud/registries --push-dependencies
 
   deploy-to-production:
     name: Deploy to Pollination Production
@@ -82,3 +103,25 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           QB_POLLINATION_TOKEN: ${{ secrets.POLLINATION_LADYBUGBOT_TOKEN }}
+      - uses: actions/checkout@v2
+        with:
+          ref: visualization
+          fetch-depth: 0
+      - name: rebase visualization branch
+        run: |
+            git config --global user.email "ci@pollination.cloud"
+            git config --global user.name "GitHub Actions"
+            git rebase origin/production
+      - name: install python viz dependencies
+        run: pip install .[viz]
+      - name: deploy viz to production
+        env:
+          TAG: ${{ steps.get-context.outputs.tag }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          QB_POLLINATION_TOKEN: ${{ secrets.POLLINATION_LADYBUGBOT_TOKEN }}
+        run: |
+          TAG=$(echo "${TAG:?}-viz" | sed 's/[[:space:]]//g')
+          echo $TAG
+          queenbee
+          pollination dsl push pollination-utci-comfort-map --tag $TAG -e https://api.pollination.cloud -src https://api.pollination.cloud/registries --push-dependencies
+

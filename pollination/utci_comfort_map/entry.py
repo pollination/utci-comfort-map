@@ -552,6 +552,10 @@ class UtciComfortMapEntryPoint(DAG):
     ) -> List[Dict]:
         return [
             {
+                'from': MapResultInfo()._outputs.viz_config_file,
+                'to': 'metrics/config.json'
+            },
+            {
                 'from': MapResultInfo()._outputs.temperature_info,
                 'to': 'results/temperature/results_info.json'
             },
