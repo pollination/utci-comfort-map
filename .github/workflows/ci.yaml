@@ -88,10 +88,18 @@ jobs:
     if: github.ref == 'refs/heads/production' && github.repository_owner == 'pollination'
     steps:
       - uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
       - name: set up Python
         uses: actions/setup-python@v2
         with:
           python-version: 3.7
+      - name: Get Job Context
+        id: get-context
+        run: |
+          TAG=$(git describe --tags | sed 's/v//')
+          echo "Releasing tag: ${TAG:?}"
+          echo "::set-output name=tag::$TAG"
       - name: install python dependencies
         run: |
           pip install pollination-utci-comfort-map
