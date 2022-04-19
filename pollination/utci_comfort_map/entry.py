@@ -587,7 +587,7 @@ class UtciComfortMapEntryPoint(DAG):
                restructure_csp_results, create_result_info]
     )
     def create_vtkjs(
-        self, hbjson_file=model, file_type='vtkjs', grid_options='points',
+        self, hbjson_file=model, file_type='vtkjs', grid_options='meshes',
         data='metrics'
     ):
         return [
