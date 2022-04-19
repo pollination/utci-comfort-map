@@ -122,3 +122,13 @@ jobs:
             git rebase origin/production
       - name: install python viz dependencies
         run: pip install .[viz]
+      - name: deploy viz to production
+        env:
+          TAG: ${{ steps.get-context.outputs.tag }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          QB_POLLINATION_TOKEN: ${{ secrets.POLLINATION_LADYBUGBOT_TOKEN }}
+        run: |
+          TAG=$(echo "${TAG:?}-viz" | sed 's/[[:space:]]//g')
+          echo $TAG
+          queenbee
+          pollination dsl push pollination-utci-comfort-map --tag $TAG -e https://api.pollination.cloud -src https://api.pollination.cloud/registries --push-dependencies
