@@ -599,7 +599,7 @@ class UtciComfortMapEntryPoint(DAG):
 
     # outputs
     visualization = Outputs.file(
-        source='visualization/pmv_comfort.vtkjs',
+        source='visualization/utci_comfort.vtkjs',
         description='Results visualization in 3D vtkjs format.'
     )
 
