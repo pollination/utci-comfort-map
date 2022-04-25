@@ -482,7 +482,8 @@ class UtciComfortMapEntryPoint(DAG):
         needs=[
             create_sky_dome, generate_sunpath, parse_sun_up_hours,
             create_total_sky, create_direct_sky,
-            split_grid_folder, create_dynamic_shade_octrees
+            split_grid_folder, create_dynamic_shade_octrees,
+            run_radiance_simulation
         ],
         loop=create_dynamic_shade_octrees._outputs.scene_info,
         sub_folder='radiance',
@@ -512,6 +513,7 @@ class UtciComfortMapEntryPoint(DAG):
         needs=[
             parse_sun_up_hours, create_view_factor_modifiers, create_model_occ_schedules,
             create_model_trans_schedules, run_energy_simulation, run_radiance_simulation,
+            run_radiance_dynamic_shade_contribution,
             split_grid_folder, split_air_speed_folder
         ],
         loop=split_grid_folder._outputs.sensor_grids,
