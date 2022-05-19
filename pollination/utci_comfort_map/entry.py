@@ -59,7 +59,7 @@ class UtciComfortMapEntryPoint(DAG):
     ddy = Inputs.file(
         description='A DDY file with design days to be used for the initial '
         'sizing calculation.', extensions=['ddy'],
-        alias=ddy_input
+        alias=ddy_input, optional=True
     )
 
     north = Inputs.float(
@@ -90,7 +90,7 @@ class UtciComfortMapEntryPoint(DAG):
         'precedence over the cpu_count and can be used to ensure that '
         'the parallelization does not result in generating unnecessarily small '
         'sensor grids. The default value is set to 1, which means that the '
-        'cpu_count is always respected.', default=1,
+        'cpu_count is always respected.', default=500,
         spec={'type': 'integer', 'minimum': 1},
         alias=min_sensor_count_input
     )
