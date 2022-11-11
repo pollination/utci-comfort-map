@@ -1,1 +1,1 @@
-pollination-honeybee-vtk==0.4.3
+pollination-honeybee-vtk==0.4.8
