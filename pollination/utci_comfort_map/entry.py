@@ -7,7 +7,8 @@ from pollination.honeybee_radiance.grid import MergeFolderData
 from pollination.honeybee_radiance_postprocess.grid import MergeFolderData as MergeFolderDataPostProcess
 
 from pollination.ladybug_comfort.map import MapResultInfo
-from pollination.path.copy import Copy
+from pollination.path.copy import CopyMultiple, Copy
+from pollination.honeybee_display.translate import ModelToVis
 
 # input/output alias
 from pollination.alias.inputs.model import hbjson_model_grid_input
@@ -455,7 +456,27 @@ class UtciComfortMapEntryPoint(DAG):
             }
         ]
 
+    @task(
+        template=ModelToVis,
+        needs=[restructure_tcp_results, restructure_hsp_results,
+               restructure_csp_results, create_result_info]
+    )
+    def create_vsf(
+        self, model=model, grid_data='metrics', output_format='vsf'
+    ):
+        return [
+            {
+                'from': ModelToVis()._outputs.output_file,
+                'to': 'visualization.vsf'
+            }
+        ]
+
     # outputs
+    visualization = Outputs.file(
+        source='visualization.vsf',
+        description='Thermal comfort result visualization in VisualizationSet format.'
+    )
+
     environmental_conditions = Outputs.folder(
         source='initial_results/conditions',
         description='A folder containing the environmental conditions that were input '
