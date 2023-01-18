@@ -623,10 +623,6 @@ class UtciComfortMapEntryPoint(DAG):
     ) -> List[Dict]:
         return [
             {
-                'from': MapResultInfo()._outputs.viz_config_file,
-                'to': 'metrics/config.json'
-            },
-            {
                 'from': MapResultInfo()._outputs.temperature_info,
                 'to': 'results/temperature/results_info.json'
             },
@@ -637,6 +633,18 @@ class UtciComfortMapEntryPoint(DAG):
             {
                 'from': MapResultInfo()._outputs.condition_intensity_info,
                 'to': 'results/condition_intensity/results_info.json'
+            },
+            {
+                'from': MapResultInfo()._outputs.tcp_vis_metadata,
+                'to': 'metrics/TCP/vis_metadata.json'
+            },
+            {
+                'from': MapResultInfo()._outputs.hsp_vis_metadata,
+                'to': 'metrics/HSP/vis_metadata.json'
+            },
+            {
+                'from': MapResultInfo()._outputs.csp_vis_metadata,
+                'to': 'metrics/CSP/vis_metadata.json'
             }
         ]
 
