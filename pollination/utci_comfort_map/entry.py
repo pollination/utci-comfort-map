@@ -547,7 +547,7 @@ class UtciComfortMapEntryPoint(DAG):
         wind_speed=wind_speed,
         air_speed_mtx=split_air_speed_folder._outputs.output_folder,
         solarcal_par=solarcal_parameters,
-        comfort_par=comfort_parameters
+        comfort_parameters=comfort_parameters
     ) -> List[Dict]:
         pass
 
