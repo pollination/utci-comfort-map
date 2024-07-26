@@ -1,15 +1,15 @@
-from pollination_dsl.dag import Inputs, DAG, task
+from pollination_dsl.dag import Inputs, GroupedDAG, task
 from dataclasses import dataclass
 
 from pollination.honeybee_radiance.grid import MirrorGrid, RadiantEnclosureInfo
-from pollination.honeybee_radiance.viewfactor import SphericalViewFactorContribution
+from pollination.honeybee_radiance_postprocess.viewfactor import SphericalViewFactorContribution
 from pollination.honeybee_radiance.contrib import DaylightContribution
 from pollination.honeybee_radiance.coefficient import DaylightCoefficient
 from pollination.honeybee_radiance.sky import SubtractSkyMatrix
 
 
 @dataclass
-class RadianceMappingEntryPoint(DAG):
+class RadianceMappingEntryPoint(GroupedDAG):
     """Entry point for Radiance calculations for comfort mapping."""
 
     # inputs
@@ -93,7 +93,7 @@ class RadianceMappingEntryPoint(DAG):
         return [
             {
                 'from': SphericalViewFactorContribution()._outputs.view_factor_file,
-                'to': 'longwave/view_factors/{{self.name}}.csv'
+                'to': 'longwave/view_factors/{{self.name}}.npy'
             }
         ]
 
@@ -120,8 +120,8 @@ class RadianceMappingEntryPoint(DAG):
         modifiers=sun_modifiers,
         sensor_grid=mirror_the_grid._outputs.base_file,
         conversion='0.265 0.670 0.065',
-        output_format='a',  # make it ascii so we expose the file as a separate output
-        header='remove',  # remove header to make it process-able later
+        output_format='f',  # make it ascii so we expose the file as a separate output
+        header='keep',  # remove header to make it process-able later
         scene_file=octree_file_with_suns
     ):
         return [
@@ -176,7 +176,9 @@ class RadianceMappingEntryPoint(DAG):
         self,
         name=grid_name,
         total_sky_matrix=total_sky._outputs.result_file,
-        direct_sky_matrix=direct_sky._outputs.result_file
+        direct_sky_matrix=direct_sky._outputs.result_file,
+        output_format='f',
+        header='keep'
     ):
         return [
             {
@@ -196,8 +198,8 @@ class RadianceMappingEntryPoint(DAG):
         sky_dome=sky_dome,
         sensor_grid=mirror_the_grid._outputs.mirrored_file,
         conversion='0.265 0.670 0.065',  # divide by 179
-        output_format='a',  # make it ascii so we expose the file as a separate output
-        header='remove',  # remove header to make it process-able later
+        output_format='f',  # make it ascii so we expose the file as a separate output
+        header='keep',  # remove header to make it process-able later
         scene_file=octree_file
     ):
         return [

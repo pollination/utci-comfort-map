@@ -1,4 +1,4 @@
-from pollination_dsl.dag import Inputs, DAG, task
+from pollination_dsl.dag import Inputs, GroupedDAG, task
 from dataclasses import dataclass
 
 from pollination.honeybee_radiance.contrib import DaylightContribution
@@ -7,7 +7,7 @@ from pollination.honeybee_radiance.sky import SubtractSkyMatrix
 
 
 @dataclass
-class ShadeContribEntryPoint(DAG):
+class ShadeContribEntryPoint(GroupedDAG):
     """Entry point for Radiance calculations for comfort mapping."""
 
     # inputs
@@ -80,8 +80,8 @@ class ShadeContribEntryPoint(DAG):
         modifiers=sun_modifiers,
         sensor_grid=sensor_grid,
         conversion='0.265 0.670 0.065',
-        output_format='a',  # make it ascii so we expose the file as a separate output
-        header='remove',  # remove header to make it process-able later
+        output_format='f',  # make it ascii so we expose the file as a separate output
+        header='keep',  # remove header to make it process-able later
         scene_file=octree_file_with_suns
     ):
         return [
@@ -142,7 +142,9 @@ class ShadeContribEntryPoint(DAG):
         grid=grid_name,
         group=group_name,
         total_sky_matrix=total_sky_spec_shade_group._outputs.result_file,
-        direct_sky_matrix=direct_sky_shade_group._outputs.result_file
+        direct_sky_matrix=direct_sky_shade_group._outputs.result_file,
+        output_format='f',
+        header='keep'
     ):
         return [
             {
@@ -163,8 +165,8 @@ class ShadeContribEntryPoint(DAG):
         sky_dome=sky_dome,
         sensor_grid=ref_sensor_grid,
         conversion='0.265 0.670 0.065',  # divide by 179
-        output_format='a',  # make it ascii so we expose the file as a separate output
-        header='remove',  # remove header to make it process-able later
+        output_format='f',  # make it ascii so we expose the file as a separate output
+        header='keep',  # remove header to make it process-able later
         scene_file=octree_file
     ):
         return [
