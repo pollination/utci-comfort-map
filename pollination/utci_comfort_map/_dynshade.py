@@ -2,8 +2,6 @@ from pollination_dsl.dag import Inputs, DAG, task
 from dataclasses import dataclass
 from typing import Dict, List
 
-from pollination.path.read import ReadJSONList
-
 from ._shdcontrib import ShadeContribEntryPoint
 
 
@@ -35,7 +33,7 @@ class DynamicShadeContribEntryPoint(DAG):
         description='A folder containing all of the split sensor grids in the model.'
     )
 
-    sensor_grids = Inputs.file(
+    sensor_grids = Inputs.list(
         description='A JSON file with information about sensor grids to loop over.'
     )
 
@@ -60,19 +58,9 @@ class DynamicShadeContribEntryPoint(DAG):
         'input irradiance files.'
     )
 
-    @task(template=ReadJSONList)
-    def read_grids_for_shade(self, src=sensor_grids) -> List[Dict]:
-        return [
-            {
-                'from': ReadJSONList()._outputs.data,
-                'description': 'Sensor grids information.'
-            }
-        ]
-
     @task(
         template=ShadeContribEntryPoint,
-        needs=[read_grids_for_shade],
-        loop=read_grids_for_shade._outputs.data,
+        loop=sensor_grids,
         sub_folder='shortwave',
         sub_paths={
             'sensor_grid': '{{item.full_id}}.pts',

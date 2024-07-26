@@ -1,4 +1,4 @@
-from pollination_dsl.dag import Inputs, DAG, task
+from pollination_dsl.dag import Inputs, GroupedDAG, task
 from dataclasses import dataclass
 from typing import Dict, List
 
@@ -8,7 +8,7 @@ from pollination.ladybug_comfort.mtx import UtciMtx
 
 
 @dataclass
-class ComfortMappingEntryPoint(DAG):
+class ComfortMappingEntryPoint(GroupedDAG):
     """Entry point for Comfort calculations."""
 
     # inputs
@@ -35,7 +35,7 @@ class ComfortMappingEntryPoint(DAG):
 
     view_factors = Inputs.file(
         description='A CSV of spherical view factors to the surfaces in the result-sql.',
-        extensions=['csv']
+        extensions=['npy']
     )
 
     modifiers = Inputs.file(
@@ -128,7 +128,8 @@ class ComfortMappingEntryPoint(DAG):
         enclosure_info=enclosure_info,
         epw=epw,
         run_period=run_period,
-        name=grid_name
+        name=grid_name,
+        plain_text='binary'
     ) -> List[Dict]:
         return [
             {
@@ -149,7 +150,8 @@ class ComfortMappingEntryPoint(DAG):
         trans_schedules=trans_schedules,
         solarcal_par=solarcal_parameters,
         run_period=run_period,
-        name=grid_name
+        name=grid_name,
+        plain_text='binary'
     ) -> List[Dict]:
         return [
             {
@@ -166,7 +168,8 @@ class ComfortMappingEntryPoint(DAG):
         epw=epw,
         run_period=run_period,
         metric='air-temperature',
-        name=grid_name
+        name=grid_name,
+        plain_text='binary'
     ) -> List[Dict]:
         return [
             {
@@ -183,7 +186,8 @@ class ComfortMappingEntryPoint(DAG):
         epw=epw,
         run_period=run_period,
         metric='relative-humidity',
-        name=grid_name
+        name=grid_name,
+        plain_text='binary'
     ) -> List[Dict]:
         return [
             {
@@ -221,7 +225,8 @@ class ComfortMappingEntryPoint(DAG):
         wind_speed_json=create_air_speed_json._outputs.air_speeds,
         air_speed_mtx=air_speed_mtx,
         comfort_par=comfort_parameters,
-        name=grid_name
+        name=grid_name,
+        plain_text='binary'
     ) -> List[Dict]:
         return [
             {
