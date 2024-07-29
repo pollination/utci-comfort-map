@@ -129,7 +129,7 @@ class ComfortMappingEntryPoint(GroupedDAG):
         epw=epw,
         run_period=run_period,
         name=grid_name,
-        plain_text='binary'
+        output_format='binary'
     ) -> List[Dict]:
         return [
             {
@@ -151,7 +151,7 @@ class ComfortMappingEntryPoint(GroupedDAG):
         solarcal_par=solarcal_parameters,
         run_period=run_period,
         name=grid_name,
-        plain_text='binary'
+        output_format='binary'
     ) -> List[Dict]:
         return [
             {
@@ -169,7 +169,7 @@ class ComfortMappingEntryPoint(GroupedDAG):
         run_period=run_period,
         metric='air-temperature',
         name=grid_name,
-        plain_text='binary'
+        output_format='binary'
     ) -> List[Dict]:
         return [
             {
@@ -187,7 +187,7 @@ class ComfortMappingEntryPoint(GroupedDAG):
         run_period=run_period,
         metric='relative-humidity',
         name=grid_name,
-        plain_text='binary'
+        output_format='binary'
     ) -> List[Dict]:
         return [
             {
@@ -226,7 +226,7 @@ class ComfortMappingEntryPoint(GroupedDAG):
         air_speed_mtx=air_speed_mtx,
         comfort_par=comfort_parameters,
         name=grid_name,
-        plain_text='binary'
+        output_format='binary'
     ) -> List[Dict]:
         return [
             {
