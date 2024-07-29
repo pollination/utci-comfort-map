@@ -37,6 +37,7 @@ from pollination.alias.outputs.comfort import tcp_output, hsp_output, csp_output
     thermal_condition_output, utci_output, utci_category_output, env_conditions_output
 
 from ._prepare_folder import PrepareFolder
+from ._energy import EnergySimulation
 from ._radiance import RadianceMappingEntryPoint
 from ._dynshade import DynamicShadeContribEntryPoint
 from ._comfort import ComfortMappingEntryPoint
@@ -145,15 +146,11 @@ class UtciComfortMapEntryPoint(DAG):
 
     @task(template=PrepareFolder)
     def prepare_folder(
-        self, model=model, epw=epw, ddy=ddy, north=north, run_period=run_period,
+        self, model=model, epw=epw, north=north, run_period=run_period,
         cpu_count=cpu_count, min_sensor_count=min_sensor_count,
         air_speed_matrices=air_speed_matrices,
     ) -> List[Dict]:
         return [
-            {
-                'from': PrepareFolder()._outputs.energy,
-                'to': 'energy'
-            },
             {
                 'from': PrepareFolder()._outputs.results,
                 'to': 'results'
@@ -183,6 +180,17 @@ class UtciComfortMapEntryPoint(DAG):
             },
             {
                 'from': PrepareFolder()._outputs.dynamic_shade_octrees
+            }
+        ]
+
+    @task(template=EnergySimulation)
+    def energy_simulation(
+        self, model=model, epw=epw, ddy=ddy, north=north, run_period=run_period
+    ) -> List[Dict]:
+        return [
+            {
+                'from': EnergySimulation()._outputs.energy,
+                'to': 'energy'
             }
         ]
 
@@ -255,7 +263,7 @@ class UtciComfortMapEntryPoint(DAG):
     @task(
         template=ComfortMappingEntryPoint,
         needs=[
-            prepare_folder, run_radiance_simulation,
+            prepare_folder, energy_simulation, run_radiance_simulation,
             run_radiance_dynamic_shade_contribution
         ],
         loop=prepare_folder._outputs.sensor_grids,
@@ -277,7 +285,7 @@ class UtciComfortMapEntryPoint(DAG):
     def run_comfort_map(
         self,
         epw=epw,
-        result_sql=prepare_folder._outputs.energy,
+        result_sql=energy_simulation._outputs.energy,
         grid_name='{{item.full_id}}',
         enclosure_info='radiance/enclosures',
         view_factors='radiance/longwave/view_factors',

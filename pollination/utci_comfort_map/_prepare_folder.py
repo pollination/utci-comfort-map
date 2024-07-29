@@ -6,8 +6,6 @@ from typing import Dict, List
 from pollination.ladybug.translate import EpwToWea
 from pollination.lbt_honeybee.edit import ModelModifiersFromConstructions
 
-from pollination.honeybee_energy.settings import SimParComfort
-from pollination.honeybee_energy.simulate import SimulateModelRoomBypass
 from pollination.honeybee_energy.translate import ModelOccSchedules, ModelTransSchedules
 
 from pollination.honeybee_radiance.sun import CreateSunMatrix, ParseSunUpHours
@@ -23,13 +21,9 @@ from pollination.path.copy import CopyMultiple
 # input/output alias
 from pollination.alias.inputs.model import hbjson_model_grid_input
 from pollination.alias.inputs.ddy import ddy_input
-from pollination.alias.inputs.comfort import wind_speed_input, \
-    utci_comfort_par_input, solar_body_par_indoor_input
 from pollination.alias.inputs.north import north_input
 from pollination.alias.inputs.runperiod import run_period_input
-from pollination.alias.inputs.radiancepar import rad_par_annual_input
 from pollination.alias.inputs.grid import min_sensor_count_input, cpu_count
-from pollination.alias.inputs.schedule import comfort_schedule_csv_input
 
 
 @dataclass
@@ -46,12 +40,6 @@ class PrepareFolder(GroupedDAG):
     epw = Inputs.file(
         description='EPW weather file to be used for the comfort map simulation.',
         extensions=['epw']
-    )
-
-    ddy = Inputs.file(
-        description='A DDY file with design days to be used for the initial '
-        'sizing calculation.', extensions=['ddy'],
-        alias=ddy_input, optional=True
     )
 
     north = Inputs.float(
@@ -98,31 +86,6 @@ class PrepareFolder(GroupedDAG):
     )
 
     # tasks
-    @task(template=SimParComfort)
-    def create_sim_par(self, ddy=ddy, run_period=run_period, north=north) -> List[Dict]:
-        return [
-            {
-                'from': SimParComfort()._outputs.sim_par_json,
-                'to': 'energy/simulation_parameter.json'
-            }
-        ]
-
-    @task(template=SimulateModelRoomBypass, needs=[create_sim_par])
-    def run_energy_simulation(
-        self, model=model, epw=epw,
-        sim_par=create_sim_par._outputs.sim_par_json
-    ) -> List[Dict]:
-        return [
-            {
-                'from': SimulateModelRoomBypass()._outputs.sql,
-                'to': 'energy/eplusout.sql'
-            },
-            {
-                'from': SimulateModelRoomBypass()._outputs.idf,
-                'to': 'energy/in.idf'
-            }
-        ]
-
     @task(template=EpwToWea)
     def create_wea(self, epw=epw, period=run_period) -> List[Dict]:
         return [
@@ -403,10 +366,6 @@ class PrepareFolder(GroupedDAG):
                 'to': 'metrics/occupancy_schedules.json'
             }
         ]
-
-    energy = Outputs.folder(
-        source='energy'
-    )
 
     results = Outputs.folder(
         source='results'
