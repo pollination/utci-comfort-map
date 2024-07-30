@@ -1,4 +1,4 @@
-from pollination_dsl.dag import Inputs, GroupedDAG, task
+from pollination_dsl.dag import Inputs, GroupedDAG, task, Outputs
 from dataclasses import dataclass
 
 from pollination.honeybee_radiance.contrib import DaylightContribution
@@ -175,3 +175,5 @@ class ShadeContribEntryPoint(GroupedDAG):
                 'to': 'shd_trans/final/{{self.grid}}/{{self.group}}/reflected.ill'
             }
         ]
+
+    shd_trans = Outputs.folder(source='shd_trans/final')

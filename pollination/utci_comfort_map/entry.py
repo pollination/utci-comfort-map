@@ -227,7 +227,24 @@ class UtciComfortMapEntryPoint(DAG):
         sun_modifiers=prepare_folder._outputs.shortwave_resources,
         view_factor_modifiers=prepare_folder._outputs.longwave_resources,
     ) -> List[Dict]:
-        pass
+        return [
+            {
+                'from': RadianceMappingEntryPoint()._outputs.enclosures,
+                'to': 'radiance/enclosures'
+            },
+            {
+                'from': RadianceMappingEntryPoint()._outputs.shortwave_results,
+                'to': 'radiance/shortwave/results'
+            },
+            {
+                'from': RadianceMappingEntryPoint()._outputs.shortwave_grids,
+                'to': 'radiance/shortwave/grids'
+            },
+            {
+                'from': RadianceMappingEntryPoint()._outputs.longwave_view_factors,
+                'to': 'radiance/longwave/view_factors'
+            }
+        ]
 
     @task(
         template=DynamicShadeContribEntryPoint,
@@ -236,12 +253,13 @@ class UtciComfortMapEntryPoint(DAG):
         sub_folder='radiance',
         sub_paths={
             'octree_file': 'dynamic_shades/{{item.default}}',
-            'octree_file_with_suns': 'dynamic_shades({{item.sun}}',
+            'octree_file_with_suns': 'dynamic_shades/{{item.sun}}',
             'sky_dome': 'sky.dome',
             'sky_matrix': 'sky.mtx',
             'sky_matrix_direct': 'sky_direct.mtx',
             'sun_modifiers': 'suns.mod',
-            'sun_up_hours': 'sun-up-hours.txt'
+            'sun_up_hours': 'sun-up-hours.txt',
+            'sensor_grids': '_split_info.json'
         }
     )
     def run_radiance_dynamic_shade_contribution(
@@ -251,7 +269,7 @@ class UtciComfortMapEntryPoint(DAG):
         octree_file_with_suns=prepare_folder._outputs.shortwave_resources,
         group_name='{{item.identifier}}',
         sensor_grid_folder='radiance/shortwave/grids',
-        sensor_grids=prepare_folder._outputs.sensor_grids,
+        sensor_grids=prepare_folder._outputs.sensor_grids_folder,
         sky_dome=prepare_folder._outputs.shortwave_resources,
         sky_matrix=prepare_folder._outputs.shortwave_resources,
         sky_matrix_direct=prepare_folder._outputs.shortwave_resources,
@@ -304,7 +322,20 @@ class UtciComfortMapEntryPoint(DAG):
         solarcal_par=solarcal_parameters,
         comfort_parameters=comfort_parameters
     ) -> List[Dict]:
-        pass
+        return [
+            {
+                'from': ComfortMappingEntryPoint()._outputs.results_folder,
+                'to': 'initial_results/results'
+            },
+            {
+                'from': ComfortMappingEntryPoint()._outputs.conditions,
+                'to': 'initial_results/conditions'
+            },
+            {
+                'from': ComfortMappingEntryPoint()._outputs.metrics,
+                'to': 'initial_results/metrics'
+            }
+        ]
 
     @task(template=MergeFolderDataPostProcess, needs=[run_comfort_map])
     def restructure_temperature_results(
