@@ -83,4 +83,9 @@ class DynamicShadeContribEntryPoint(DAG):
         sun_modifiers=sun_modifiers,
         sun_up_hours=sun_up_hours
     ) -> List[Dict]:
-        pass
+        return [
+            {
+                'from': ShadeContribEntryPoint()._outputs.shd_trans,
+                'to': 'radiance/shortwave/shd_trans/final'
+            }
+        ]

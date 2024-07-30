@@ -1,4 +1,4 @@
-from pollination_dsl.dag import Inputs, GroupedDAG, task
+from pollination_dsl.dag import Inputs, GroupedDAG, task, Outputs
 from dataclasses import dataclass
 from typing import Dict, List
 
@@ -260,3 +260,7 @@ class ComfortMappingEntryPoint(GroupedDAG):
             {'from': Tcp()._outputs.hsp, 'to': 'metrics/HSP/{{self.name}}.csv'},
             {'from': Tcp()._outputs.csp, 'to': 'metrics/CSP/{{self.name}}.csv'}
         ]
+
+    results_folder = Outputs.folder(source='results')
+    conditions = Outputs.folder(source='conditions')
+    metrics = Outputs.folder(source='metrics')

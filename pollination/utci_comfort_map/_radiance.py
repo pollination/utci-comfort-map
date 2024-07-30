@@ -1,4 +1,4 @@
-from pollination_dsl.dag import Inputs, GroupedDAG, task
+from pollination_dsl.dag import Inputs, GroupedDAG, task, Outputs
 from dataclasses import dataclass
 
 from pollination.honeybee_radiance.grid import MirrorGrid, RadiantEnclosureInfo
@@ -208,3 +208,9 @@ class RadianceMappingEntryPoint(GroupedDAG):
                 'to': 'shortwave/results/reflected/{{self.name}}.ill'
             }
         ]
+
+
+    enclosures = Outputs.folder(source='enclosures')
+    shortwave_results = Outputs.folder(source='shortwave/results')
+    shortwave_grids = Outputs.folder(source='shortwave/grids')
+    longwave_view_factors = Outputs.folder(source='longwave/view_factors')
