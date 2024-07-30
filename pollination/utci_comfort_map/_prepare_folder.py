@@ -387,9 +387,9 @@ class PrepareFolder(GroupedDAG):
         source='radiance/longwave/resources', description='resources folder.'
     )
 
-    sensor_grids = Outputs.list(source=split_grid_folder._outputs.sensor_grids_file)
+    sensor_grids = Outputs.list(source='radiance/grid/_split_info.json')
 
-    sensor_grids_folder = Outputs.folder(source=split_grid_folder._outputs.output_folder)
+    sensor_grids_folder = Outputs.folder(source='radiance/grid')
 
     dynamic_shade_octrees = Outputs.list(
         source='radiance/shortwave/resources/dynamic_shades/trans_info.json'
