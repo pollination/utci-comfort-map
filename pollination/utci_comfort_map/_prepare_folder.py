@@ -15,6 +15,7 @@ from pollination.honeybee_radiance.sky import CreateSkyDome, CreateSkyMatrix
 from pollination.honeybee_radiance.grid import SplitGridFolder, SplitDataFolder
 from pollination.honeybee_radiance.octree import CreateOctreeShadeTransmittance
 from pollination.honeybee_radiance.viewfactor import ViewFactorModifiers
+from pollination.honeybee_radiance.modifier import SplitModifiers
 
 from pollination.path.copy import CopyMultiple
 
