@@ -22,9 +22,12 @@ from pollination.alias.inputs.schedule import comfort_schedule_csv_input
 from pollination.alias.outputs.comfort import tcp_output, hsp_output, csp_output, \
     thermal_condition_output, utci_output, utci_category_output, env_conditions_output
 
+from pollination.honeybee_radiance.modifier import SplitModifiers
+
 from ._prepare_folder import PrepareFolder
 from ._energy import EnergySimulation
 from ._radiance import RadianceMappingEntryPoint
+from ._view_factor import SphericalViewFactorEntryPoint
 from ._dynshade import DynamicShadeContribEntryPoint
 from ._comfort import ComfortMappingEntryPoint
 
@@ -181,13 +184,11 @@ class UtciComfortMapEntryPoint(DAG):
         ]
 
     @task(
-        template=RadianceMappingEntryPoint,
+        template=SphericalViewFactorEntryPoint,
         needs=[prepare_folder],
         loop=prepare_folder._outputs.sensor_grids,
-        sub_folder='radiance',
+        sub_folder='radiance/view_factor/{{item.full_id}}',
         sub_paths={
-            'octree_file_with_suns': 'scene_with_suns.oct',
-            'octree_file': 'scene.oct',
             'octree_file_view_factor': 'scene.oct',
             'sensor_grid': '{{item.full_id}}.pts',
             'sky_dome': 'sky.dome',
@@ -197,12 +198,9 @@ class UtciComfortMapEntryPoint(DAG):
             'view_factor_modifiers': 'scene.mod'
         }
     )
-    def run_radiance_simulation(
+    def run_spherical_view_factor_simulation(
         self,
         radiance_parameters=radiance_parameters,
-        model=model,
-        octree_file_with_suns=prepare_folder._outputs.shortwave_resources,
-        octree_file=prepare_folder._outputs.shortwave_resources,
         octree_file_view_factor=prepare_folder._outputs.longwave_resources,
         grid_name='{{item.full_id}}',
         sensor_grid=prepare_folder._outputs.sensor_grids_folder,
@@ -211,7 +209,38 @@ class UtciComfortMapEntryPoint(DAG):
         sky_matrix=prepare_folder._outputs.shortwave_resources,
         sky_matrix_direct=prepare_folder._outputs.shortwave_resources,
         sun_modifiers=prepare_folder._outputs.shortwave_resources,
-        view_factor_modifiers=prepare_folder._outputs.longwave_resources,
+        view_factor_modifiers=prepare_folder._outputs.longwave_resources
+    ) -> List[Dict]:
+        pass
+
+    @task(
+        template=RadianceMappingEntryPoint,
+        needs=[prepare_folder],
+        loop=prepare_folder._outputs.sensor_grids,
+        sub_folder='radiance',
+        sub_paths={
+            'octree_file_with_suns': 'scene_with_suns.oct',
+            'octree_file': 'scene.oct',
+            'sensor_grid': '{{item.full_id}}.pts',
+            'sky_dome': 'sky.dome',
+            'sky_matrix': 'sky.mtx',
+            'sky_matrix_direct': 'sky_direct.mtx',
+            'sun_modifiers': 'suns.mod'
+        }
+    )
+    def run_radiance_simulation(
+        self,
+        radiance_parameters=radiance_parameters,
+        model=model,
+        octree_file_with_suns=prepare_folder._outputs.shortwave_resources,
+        octree_file=prepare_folder._outputs.shortwave_resources,
+        grid_name='{{item.full_id}}',
+        sensor_grid=prepare_folder._outputs.sensor_grids_folder,
+        sensor_count='{{item.count}}',
+        sky_dome=prepare_folder._outputs.shortwave_resources,
+        sky_matrix=prepare_folder._outputs.shortwave_resources,
+        sky_matrix_direct=prepare_folder._outputs.shortwave_resources,
+        sun_modifiers=prepare_folder._outputs.shortwave_resources
     ) -> List[Dict]:
         return [
             {
@@ -225,16 +254,12 @@ class UtciComfortMapEntryPoint(DAG):
             {
                 'from': RadianceMappingEntryPoint()._outputs.shortwave_grids,
                 'to': 'radiance/shortwave/grids'
-            },
-            {
-                'from': RadianceMappingEntryPoint()._outputs.longwave_view_factors,
-                'to': 'radiance/longwave/view_factors'
             }
         ]
 
     @task(
         template=DynamicShadeContribEntryPoint,
-        needs=[prepare_folder, run_radiance_simulation],
+        needs=[prepare_folder],
         loop=prepare_folder._outputs.dynamic_shade_octrees,
         sub_folder='radiance',
         sub_paths={
@@ -268,7 +293,8 @@ class UtciComfortMapEntryPoint(DAG):
         template=ComfortMappingEntryPoint,
         needs=[
             prepare_folder, energy_simulation, run_radiance_simulation,
-            run_radiance_dynamic_shade_contribution
+            run_radiance_dynamic_shade_contribution,
+            run_spherical_view_factor_simulation
         ],
         loop=prepare_folder._outputs.sensor_grids,
         sub_folder='initial_results',
