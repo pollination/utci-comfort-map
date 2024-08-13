@@ -6,7 +6,6 @@ from typing import Dict, List
 from pollination.honeybee_radiance_postprocess.viewfactor import SphericalViewFactorContribution
 
 
-
 @dataclass
 class SphericalViewFactor(DAG):
     """Prepare folder for two phase daylight coefficient."""

@@ -75,6 +75,4 @@ class EnergySimulation(GroupedDAG):
             }
         ]
 
-    energy = Outputs.folder(
-        source='energy'
-    )
+    energy = Outputs.folder(source='energy')

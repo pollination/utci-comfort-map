@@ -262,5 +262,7 @@ class ComfortMappingEntryPoint(GroupedDAG):
         ]
 
     results_folder = Outputs.folder(source='results')
+
     conditions = Outputs.folder(source='conditions')
+
     metrics = Outputs.folder(source='metrics')

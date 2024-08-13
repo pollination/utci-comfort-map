@@ -15,13 +15,11 @@ from pollination.honeybee_radiance.sky import CreateSkyDome, CreateSkyMatrix
 from pollination.honeybee_radiance.grid import SplitGridFolder, SplitDataFolder
 from pollination.honeybee_radiance.octree import CreateOctreeShadeTransmittance
 from pollination.honeybee_radiance.viewfactor import ViewFactorModifiers
-from pollination.honeybee_radiance.modifier import SplitModifiers
 
 from pollination.path.copy import CopyMultiple
 
 # input/output alias
 from pollination.alias.inputs.model import hbjson_model_grid_input
-from pollination.alias.inputs.ddy import ddy_input
 from pollination.alias.inputs.north import north_input
 from pollination.alias.inputs.runperiod import run_period_input
 from pollination.alias.inputs.grid import min_sensor_count_input, cpu_count
@@ -178,11 +176,7 @@ class PrepareFolder(GroupedDAG):
             {
                 'from': CreateRadianceFolderGrid()._outputs.sensor_grids_file,
                 'to': 'results/temperature/grids_info.json'
-            },
-            # {
-            #     'from': CreateRadianceFolderGrid()._outputs.sensor_grids,
-            #     'description': 'Sensor grids information.'
-            # }
+            }
         ]
 
     @task(template=CopyMultiple, needs=[create_rad_folder])
@@ -235,11 +229,7 @@ class PrepareFolder(GroupedDAG):
             {
                 'from': SplitGridFolder()._outputs.sensor_grids_file,
                 'to': 'radiance/grid/_split_info.json'
-            },
-            # {
-            #     'from': SplitGridFolder()._outputs.sensor_grids,
-            #     'description': 'Sensor grids information.'
-            # }
+            }
         ]
 
     @task(template=CopyMultiple, needs=[split_grid_folder])
@@ -309,11 +299,7 @@ class PrepareFolder(GroupedDAG):
             {
                 'from': CreateOctreeShadeTransmittance()._outputs.scene_folder,
                 'to': 'radiance/shortwave/resources/dynamic_shades'
-            },
-            # {
-            #     'from': CreateOctreeShadeTransmittance()._outputs.scene_info,
-            #     'description': 'List of octrees to iterate over.'
-            # }
+            }
         ]
 
     @task(template=ModelTransSchedules)
