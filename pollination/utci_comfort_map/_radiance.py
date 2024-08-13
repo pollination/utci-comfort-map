@@ -184,5 +184,7 @@ class RadianceMappingEntryPoint(GroupedDAG):
 
 
     enclosures = Outputs.folder(source='enclosures')
+
     shortwave_results = Outputs.folder(source='shortwave/results')
+
     shortwave_grids = Outputs.folder(source='shortwave/grids')

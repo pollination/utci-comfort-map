@@ -22,8 +22,6 @@ from pollination.alias.inputs.schedule import comfort_schedule_csv_input
 from pollination.alias.outputs.comfort import tcp_output, hsp_output, csp_output, \
     thermal_condition_output, utci_output, utci_category_output, env_conditions_output
 
-from pollination.honeybee_radiance.modifier import SplitModifiers
-
 from ._prepare_folder import PrepareFolder
 from ._energy import EnergySimulation
 from ._radiance import RadianceMappingEntryPoint
