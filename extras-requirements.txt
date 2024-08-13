@@ -1,1 +1,1 @@
-pollination-honeybee-display==0.1.11
+pollination-honeybee-display==0.1.17
