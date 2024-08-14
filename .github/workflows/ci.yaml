@@ -51,6 +51,11 @@ jobs:
         uses: actions/setup-python@v2
         with:
           python-version: 3.7
+      - name: set tag
+        id: set-tag
+        run: |
+          TAG=$(echo "${{ needs.deploy.outputs.tag }}" | sed 's/[[:space:]]//g')
+          echo "::set-output name=tag::$TAG"
       - name: install python dependencies
         run: pip install .
       - name: deploy to staging
@@ -81,6 +86,14 @@ jobs:
           echo $TAG
           queenbee
           pollination dsl push pollination-utci-comfort-map --tag $TAG -e https://api.staging.pollination.cloud -src https://api.staging.pollination.cloud/registries --push-dependencies
+      - name: install python dependencies for samples
+        run: pip install -r samples/requirements.txt
+      - name: run on staging
+        run: python samples/run_jobs.py
+        env:
+          QB_POLLINATION_TOKEN: ${{ secrets.POLLINATION_STAGING_LADYBUGBOT_TOKEN }}
+          TAG: ${{ steps.set-tag.outputs.tag }}
+          HOST: https://api.staging.pollination.cloud
 
   deploy-to-production:
     name: Deploy to Pollination Production
