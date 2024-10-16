@@ -14,7 +14,7 @@ jobs:
       - name: set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: "3.10"
+          python-version: '3.12'
       - name: set up node  # we need node for for semantic release
         uses: actions/setup-node@v4
         with:
@@ -50,7 +50,7 @@ jobs:
       - name: set up Python
         uses: actions/setup-python@v2
         with:
-          python-version: 3.7
+          python-version: '3.12'
       - name: set tag
         id: set-tag
         run: |
@@ -61,7 +61,7 @@ jobs:
       - name: deploy to staging
         run: |
           queenbee
-          pollination dsl push pollination-utci-comfort-map --tag ${{needs.deploy.outputs.tag}} -e https://api.staging.pollination.cloud -src https://api.staging.pollination.cloud/registries
+          pollination dsl push pollination-utci-comfort-map --tag ${{needs.deploy.outputs.tag}} -e https://api.staging.pollination.solutions -src https://api.staging.pollination.solutions/registries
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           QB_POLLINATION_TOKEN: ${{ secrets.POLLINATION_STAGING_LADYBUGBOT_TOKEN }}
@@ -71,7 +71,7 @@ jobs:
           fetch-depth: 0
       - name: rebase visualization branch
         run: |
-          git config --global user.email "ci@pollination.cloud"
+          git config --global user.email "ci@pollination.solutions"
           git config --global user.name "GitHub Actions"
           git rebase origin/master
       - name: install python viz dependencies
@@ -85,7 +85,7 @@ jobs:
           TAG=$(echo "${TAG:?}-viz" | sed 's/[[:space:]]//g')
           echo $TAG
           queenbee
-          pollination dsl push pollination-utci-comfort-map --tag $TAG -e https://api.staging.pollination.cloud -src https://api.staging.pollination.cloud/registries --push-dependencies
+          pollination dsl push pollination-utci-comfort-map --tag $TAG -e https://api.staging.pollination.solutions -src https://api.staging.pollination.solutions/registries --push-dependencies
       - name: install python dependencies for samples
         run: pip install -r samples/requirements.txt
       - name: run on staging
@@ -93,7 +93,7 @@ jobs:
         env:
           QB_POLLINATION_TOKEN: ${{ secrets.POLLINATION_STAGING_LADYBUGBOT_TOKEN }}
           TAG: ${{ steps.set-tag.outputs.tag }}
-          HOST: https://api.staging.pollination.cloud
+          HOST: https://api.staging.pollination.solutions
 
   deploy-to-production:
     name: Deploy to Pollination Production
@@ -120,7 +120,7 @@ jobs:
       - name: deploy to production
         run: |
           queenbee
-          pollination dsl push pollination-utci-comfort-map -e https://api.pollination.cloud -src https://api.pollination.cloud/registries --push-dependencies
+          pollination dsl push pollination-utci-comfort-map -e https://api.pollination.solutions -src https://api.pollination.solutions/registries --push-dependencies
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           QB_POLLINATION_TOKEN: ${{ secrets.POLLINATION_LADYBUGBOT_TOKEN }}
@@ -130,7 +130,7 @@ jobs:
           fetch-depth: 0
       - name: rebase visualization branch
         run: |
-            git config --global user.email "ci@pollination.cloud"
+            git config --global user.email "ci@pollination.solutions"
             git config --global user.name "GitHub Actions"
             git rebase origin/production
       - name: install python viz dependencies
@@ -144,4 +144,4 @@ jobs:
           TAG=$(echo "${TAG:?}-viz" | sed 's/[[:space:]]//g')
           echo $TAG
           queenbee
-          pollination dsl push pollination-utci-comfort-map --tag $TAG -e https://api.pollination.cloud -src https://api.pollination.cloud/registries --push-dependencies
+          pollination dsl push pollination-utci-comfort-map --tag $TAG -e https://api.pollination.solutions -src https://api.pollination.solutions/registries --push-dependencies
