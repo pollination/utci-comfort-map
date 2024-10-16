@@ -307,7 +307,7 @@ class UtciComfortMapEntryPoint(DAG):
             'sun_up_hours': 'sun-up-hours.txt',
             'occ_schedules': 'occupancy_schedules.json',
             'trans_schedules': 'trans_schedules.json',
-            'air_speed_mtx': 'conditions/{{item.full_id}}.csv'
+            'air_speed_mtx': 'conditions/air_speeds/{{item.full_id}}.csv'
         }
     )
     def run_comfort_map(
