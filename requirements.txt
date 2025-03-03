@@ -6,3 +6,4 @@ pollination-honeybee-energy==0.7.3
 pollination-lbt-honeybee==0.1.14
 pollination-alias==0.11.8
 pollination-path==0.3.2
+pollination_dsl>=0.17.1
