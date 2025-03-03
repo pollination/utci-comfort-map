@@ -17,7 +17,7 @@ from pollination.alias.inputs.comfort import wind_speed_input, \
 from pollination.alias.inputs.north import north_input
 from pollination.alias.inputs.runperiod import run_period_input
 from pollination.alias.inputs.radiancepar import rad_par_annual_input
-from pollination.alias.inputs.grid import min_sensor_count_input, cpu_count
+from pollination.alias.inputs.grid import cpu_count
 from pollination.alias.inputs.schedule import comfort_schedule_csv_input
 from pollination.alias.outputs.comfort import tcp_output, hsp_output, csp_output, \
     thermal_condition_output, utci_output, utci_category_output, env_conditions_output
@@ -79,10 +79,9 @@ class UtciComfortMapEntryPoint(DAG):
         'redistributing the sensors based on cpu_count. This value takes '
         'precedence over the cpu_count and can be used to ensure that '
         'the parallelization does not result in generating unnecessarily small '
-        'sensor grids. The default value is set to 1, which means that the '
-        'cpu_count is always respected.', default=1000, default_local=500,
-        spec={'type': 'integer', 'minimum': 1},
-        alias=min_sensor_count_input
+        'sensor grids. The default value is set to 500 for local runs.',
+        default=1000, default_local=500,
+        spec={'type': 'integer', 'minimum': 1}
     )
 
     wind_speed = Inputs.file(
