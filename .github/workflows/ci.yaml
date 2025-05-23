@@ -57,7 +57,9 @@ jobs:
           TAG=$(echo "${{ needs.deploy.outputs.tag }}" | sed 's/[[:space:]]//g')
           echo "::set-output name=tag::$TAG"
       - name: install python dependencies
-        run: pip install .
+        run: |
+          pip install -r dev-requirements.txt
+          pip install .
       - name: deploy to staging
         run: |
           queenbee
